@@ -1,15 +1,35 @@
 from src.attachments import validate_filename, ALLOWED_EXTENSIONS, add_attachment
+from src.usermgmt import validate_password, write_user
+from    src.UserExceptions import PasswordLengthException, PasswordCommonException, PasswordIllegalCharException, PasswordLackingCharsException
 
-from flask import Flask, request, redirect, flash, url_for
-from werkzeug.utils import secure_filename
+import sqlite3
 import os
+
+from flask import Flask, request, redirect, flash, url_for, render_template_string
+from werkzeug.utils import secure_filename
+
+
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = './files'
+app.secret_key = 'wbahtaldgjhg45i791ńaFMDsl'
 
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# sql = sqlite3.connect("test.db")
+# db = sql.cursor()
+# db.execute("DROP TABLE IF EXISTS USERS;")
+# db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL);")
+# db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
+# print(db.execute("SELECT * FROM USERS;").fetchall())
+# db.execute('''INSERT INTO USERS (username, password) VALUES('admin', 'gvba1234asdf5678|fghhgghhjdjdjdjd') ''')
+# print(db.execute("SELECT * FROM USERS;").fetchall())
+# sql.commit()
+# db.close()
+# sql.close()
+
+
+db = sqlite3.connect("test.db").cursor()
+print(db.execute("SELECT * FROM USERS").fetchall())
+db.close()
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
@@ -25,10 +45,10 @@ def upload_file():
         if file.filename == '':
             flash('No selected file')
             return redirect(request.url)
-        if file and allowed_file(file.filename):
+        if file and validate_filename(file.filename):
             filename = secure_filename(file.filename)
             # print(file.stream.read())
-            print(add_attachment(file))
+            print(add_attachment(file, "admin"))
             # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             return redirect(url_for('upload_file', name=filename))
     return '''
@@ -40,3 +60,45 @@ def upload_file():
       <input type=submit value=Upload>
     </form>
     '''
+
+@app.route("/passcheck", methods=["GET", "POST"])
+def validatePassword():
+    if request.method == "POST":
+        passw = request.form.get("pass", "unknown")
+        if passw is None:
+            flash('No password sent')
+            return redirect(request.url)
+        # print(passw)
+        try:
+            validate_password(passw)
+        except PasswordLengthException:
+            flash('Password must be at least 12 characters long!', category="error")
+            return redirect(request.url)
+        except PasswordIllegalCharException:
+            flash('Password contains illegal characters!', category="error")
+            return redirect(request.url)
+        except PasswordLackingCharsException as e:
+            text = '''Password must contain: 
+            '''
+            for i in str(e).strip().split(";", 2):
+                text +=  i + ", "
+            # flash('''Password must contain:\n- At least 2 capital letters\n- At least 2 special characters(!"#$%&'()*+,-./:;<=>?@[\]^_)\n- At least one number''', category="error")
+            text = text[:-2] + "."
+            flash(text, category="error")
+            return redirect(request.url)
+        except PasswordCommonException:
+            flash('Password is too common!', category="error")
+            return redirect(request.url)
+
+    return render_template_string('''
+    <!doctype html>
+    <title>Check password correctness</title>
+    <h1>Input your password</h1>
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+        <div class="flash {{ category }}">{{message}}</div> 
+    {% endfor %}
+    <form method=post enctype=multipart/form-data>
+      <input type=password id=pass name=pass>
+      <input type=submit value=Upload>
+    </form>
+    ''')

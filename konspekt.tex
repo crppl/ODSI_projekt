@@ -1,0 +1,117 @@
+\documentclass{article}
+\usepackage[OT4]{fontenc}
+\usepackage[polish]{babel}
+\usepackage[legalpaper, margin=2cm]{geometry}
+
+\begin{document}
+
+\title{Opis funkcjonalny projektu w ramach przedmiotu Ochrona Danych w Systemach Informatycznych}
+\author{Jan Machowski, 325492}
+\date{sem. 2025Z}
+\maketitle
+
+
+\section{Wstęp}
+W ramach projektu zaliczeniowego zostanie stworzona aplikacja w języku Python do bezpiecznej wymiany wiadomości między dwoma użytkownikami, z możliwością wysłania załączników.
+Aplikacja będzie umożliwiać rejestrację i logowanie użytkownika oraz zaszyfrowane przesłanie wiadomości, wykorzystując aktualne sposoby szyfrowania i zachowania bezpieczeństwa informacji.
+Aplikacja zostanie napisana w architekturze MVC z wykorzystaniem framework'u Flask oraz potrzebnych do zabezpieczenia technologii opisanych dalej w tym dokumencie.
+
+\section{Planowany stos technologiczny}
+W ramach stworzenia aplikacji wykorzystane zostaną następujące technologie:
+\begin{itemize}
+    \item \textbf{Python} - język programowania, w którym zostanie napisany backend aplikacji. Szczególnie, zostaną wykorzystane następujące technologie:
+    \begin{itemize}
+        \item \textit{Flask} - framework w którym zostanie napisana aplikacja;
+        \item \textit{Pycryptodome} - biblioteka, z której zostaną wykorzystane funkcje szyfrujące;
+        \item \textit{html\_sanitizer} - biblioteka do sanityzacji danych wprowadzonych przez użytkownika z negatywnym nastawieniem;
+        \item textit{passlib.hash} - moduł biblioteki passlib służący do obsługi kryptograficznych funkcji skrótu. 
+    \end{itemize}
+    \item \textbf{SQLite} - silnik bazodanowy w którym przechowywane będą dane potrzebne do prawidłowego funkcjonowania aplikacji.
+    \item \textbf{nginx} - silnik serwera WWW wykorzystywanego jako pośrednika, umożliwiającego korzystanie z aplikacji.
+    \item \textbf{docker} - cała aplikacja będzie się znajdować w kontenerze docker w celu łatwej obsługi.  
+\end{itemize}
+
+\section{Planowana architektura aplikacji}
+Architektura aplikacji będzie zawierać następujące części:
+\subsection{Baza danych}
+W skład bazy danych wchodzić będą następujące tabelki:
+\begin{enumerate}
+    \item \textit{users} - 
+    Tabela zawierająca informacje o użytkownikach, w tym:
+    \begin{itemize}
+        \item nazwa użytkownika
+        \item ID użytkownika
+        \item sól + hasło zaszyfrowane funkcją skrótu
+        \item publiczny klucz RSA 
+        \item ID wiadomości wysłanych 
+        \item ID wiadomości otrzymanych 
+    \end{itemize}
+
+    \item \textit{messages} -
+    Tabela zawierająca przesłane przez użytkowników, zaszyfrowane wiadomości. Jako rekord tej tabelki rozumie się zaszyfrowaną wiadomość oraz jej identyfikator.
+
+\end{enumerate}
+
+\subsection{Aplikacja w Python}
+W ramach projektu planowane jest stworzenie bibliotek odpowiadających za poszczególne funkcjonalności aplikacji. W skład tych bibliotek wchodzić będą:
+\begin{itemize}
+    \item \textit{main.py} - plik w framework'u Flask będący kontrolerem między serwerem proxy a backend'em aplikacji; 
+    \item \textit{usermgmt.py} - biblioteka do zarządzania kontami użytkowników - tworzenia kont, tworzenia soli dla użytkowników, sprawdzania siły hasła, etc.;
+    \item \textit{attachments.py} - biblioteka do obsługi dodawania załączników - sprawdzania rozmiaru pliku, czy jest odpowiedniego rozszerzenia, sanityzacji pliku, etc.;
+\end{itemize}
+
+\subsection{Serwer proxy}
+Aby umożliwić działanie przeglądarkowe aplikacji wykorzystany zostanie serwer proxy w technologii nginx. Serwer zostanie skonfi
+
+
+\section{Decyzje projektowe}
+\subsection{Struktura wiadomości}
+Aby zapewnić deterministyczny sposób zarządzania wiadomościami i załącznikami, struktura wiadomości będzie wyglądała następująco:
+\begin{verbatim}
+    podpis nagłówek wiadomość <|tytył_załącznika|załącznik>
+\end{verbatim}
+
+\subsubsection{Nagłówek}
+Nagłówek wiadomości będzie bajtem zawierającym m.in. informację o tym, czy wiadomość została przeczytana oraz czy ma załącznik.
+
+\subsubsection{Wiadomość}
+Wiadomość będzie ciągiem znaków w formacie UTF-8, o maksymalnej długości 4096 bajtów. Tekst wiadomości jest integralną częścią przesłania wiadomości. 
+
+\subsubsection{Załącznik}
+Jeżeli nadawca będzie chciał wysłać załącznik wraz z wiadomością, zostanie on dołączony w postaci kodu w formacie \textbf{base64}, z dwoma znakami \textbf{|} oddzielającymi tytuł od wiadomości 
+oraz załącznik od tytułu. Dzięki temu zabiegowi, po odszyfrowaniu payload'u, będzie można w prosty sposób odróżnić dane należące do wiadomości w porównaniu z tymi, które są załącznikiem.
+
+\subsection{Szyfrowanie i podpisywanie wiadomości i załączników}
+W aplikacji projektowej szyfrowanie wiadomości i załączników będzie wykonywane za pomocą algorytmu \textbf{RSA} z wykorzystaniem paddingu \textbf{OAEP}, 
+zaimplementowanych w bibliotece \textit{PyCryptodome}. Payload zostanie zaszyfrowany kluczem publicznym odbiorcy, i nie będzie możliwe odczytanie wiadomości wysłanej przez nadawcę.
+
+Przed szyfrowaniem, wiadomość zostanie podpisana za pomocą hasha funkcji \textbf{SHA256}. Podpis zostanie doklejony do wiadomości jako pierwsze 256 bajtów.
+
+\subsection{Wkład od użytkownika}
+Każdy wkład od użytkownika zostanie poddany sanityzacji za pomocą biblioteki \textit{html\_sanitizer} w celu ochrony przed atakiem XSS. Dodatkowo, nieszyfrowane lub niehashowane dane 
+wprowadzane do baz danych będą parametryzowane w celu ochrony przed atakami SQL Injection.
+
+\subsection{Kontrola siły hasła}
+Aplikacja nie pozwoli utworzyć użytkownika z hasłem, które nie będzie spełniało przynajmniej jednego z poniższych kryteriów:
+\begin{enumerate}
+    \item Hasło musi składać się ze znaków należących do dozwolonego alfabetu:
+    \begin{itemize}
+        \item Alfanumeryczne: \verb|0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ|
+        \item Specjalne: \verb|!"#$%&'()*+,-./:;<=>?@[\]^_|
+    \end{itemize}
+    \item Hasło powinno posiadać co najmniej 2 wielkie litery, 1 cyfrę, 2 znaki specjalne;
+    \item Hasło powinno posiadać co najmniej 12 znaków;
+    \item Hasło nie może znajdować się na liście 100 000 najpopularniejszych haseł; 
+\end{enumerate}
+
+\subsection{Przechowywanie hasła}
+Hasło użytkownika będzie przechowywane w następującej formie 64-bajtowego ciągu:
+\begin{verbatim}
+    sól hash 
+\end{verbatim}
+gdzie sól to 16-bajtowy ciąg składający się ze znaków z alfabetu hasła, hash to wynik kryptograficznej funkcji skrótu \textbf{argon2} o długości 48 bajtów.  
+
+\subsection{Opóźnienia i limity prób}
+W celu ochrony przed atakami brute-force, w aplikacji okreslony zostanie limit 5 prób zalogowania się, po przekroczeniu którego na użytkownika zostanie nałożona 5-minutowy okres oczekiwania. 
+
+\end{document}
