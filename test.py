@@ -1,5 +1,5 @@
 from src.attachments import validate_filename, ALLOWED_EXTENSIONS, add_attachment
-from src.usermgmt import validate_password, write_user
+from src.usermgmt import write_user, check_username_taken
 from src.UserExceptions import (
     PasswordLengthException, 
     PasswordCommonException, 
@@ -80,6 +80,9 @@ def login_user():
             if request.method == "POST":
                 uname = request.form.get("unam")
                 passw = request.form.get("pass")
+                if not check_username_taken(uname):
+                    flash('User with this username not found!')
+                    return redirect(request.url)
                 # try:
                 #     write_user(uname, passw)
                 # except Usera
@@ -125,12 +128,14 @@ def registerUser():
         except UsernameTakenException:
             flash('Provided username is already taken!', category="error")
             return redirect(request.url)
+    
+        return redirect("/login")
         
         # TODO - continue registration code
 
 
         # if ret == 0:
-            return redirect("/")
+            # return redirect("/")
             # additional text about registering
             # code regarding login and stuff
 

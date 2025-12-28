@@ -13,7 +13,7 @@ from src.UserExceptions import (
 ALLOWED_PASS_CHARS = [i for i in printable[:89]]
 
 def generate_salt():
-    return "".join([choice(printable[:89]) for _ in range(16)])
+    return "".join([choice(printable[:89]) for _ in range(16)]).encode()
 
 def connect_to_db():
     db = sqlite3.connect("test.db")
@@ -67,22 +67,21 @@ def write_user(username, password):
     # print("TODO: password validation error")
     ret = validate_password(password)
 
+    if not check_username_taken(username):
+        return
+    
+    print("aaaaa")
+    
     salt = generate_salt()
     hasher = plh.argon2.using(salt=salt, hash_len=47)    
     hash = hasher.hash(password)
     
     db, sql = connect_to_db()
 
-    try:
-        check_username_taken(username)
-    except UsernameTakenException:
-        raise UsernameTakenException
-    except:
-        ret = 9
-        return ret 
+    print(username, salt, hash, sep="\n")
         
     try:
-        sql.execute("INSERT INTO USERS (username, password) VALUES (?,?)", username, salt + "|" + hash)
+        sql.execute("INSERT INTO USERS (username, password) VALUES (?,?)", username, salt + "|" + hash.split(",p=", 1)[1])
         ret = 0
     except:
         ret = 9
@@ -96,9 +95,12 @@ def check_username_taken(username):
 
     try:
         sql.execute("SELECT COUNT(*) FROM USERS WHERE username = ?", username)
-        if int(sql.fetchall()[0][0]) != 0:
+        number = sql.fetchall()[0][0]
+        print("================", number, "================")
+        if number != 0:
             raise UsernameTakenException
     except UsernameTakenException:
+        print("Username Taken!!!")
         db.close()
         raise UsernameTakenException
     except:
@@ -107,5 +109,29 @@ def check_username_taken(username):
     
     db.close()
     return True
-    
 
+
+def check_hash(salt, ahash, passw):
+    hasher = plh.argon2.using(salt=salt, hash_len=47)    
+    gh = hasher.hash(passw)
+
+    if gh.split(",p=", 1)[1] == ahash:
+        return True
+    else:
+        return False
+
+def user_login(username, password):
+    db, sql = connect_to_db()
+    try:
+        sql.execute("SELECT * FROM users WHERE username = ?", username)
+    except:
+        db.close()
+        return False
+
+
+    salt, acthash = str(sql.fetchall()[0][1]).split("|")
+
+    return check_hash(salt, acthash, password)
+
+
+    db.close()
