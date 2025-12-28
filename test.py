@@ -1,11 +1,11 @@
 from src.attachments import validate_filename, ALLOWED_EXTENSIONS, add_attachment
 from src.usermgmt import validate_password, write_user
-from    src.UserExceptions import PasswordLengthException, PasswordCommonException, PasswordIllegalCharException, PasswordLackingCharsException
+from src.UserExceptions import PasswordLengthException, PasswordCommonException, PasswordIllegalCharException, PasswordLackingCharsException
 
 import sqlite3
 import os
 
-from flask import Flask, request, redirect, flash, url_for, render_template_string
+from flask import Flask, request, redirect, flash, url_for, render_template_string, render_template
 from werkzeug.utils import secure_filename
 
 
@@ -61,16 +61,17 @@ def upload_file():
     </form>
     '''
 
-@app.route("/passcheck", methods=["GET", "POST"])
+@app.route("/register", methods=["GET", "POST"])
 def validatePassword():
     if request.method == "POST":
         passw = request.form.get("pass", "unknown")
         if passw is None:
             flash('No password sent')
             return redirect(request.url)
-        # print(passw)
+        
+        # password validation
         try:
-            validate_password(passw)
+            ret = validate_password(passw)
         except PasswordLengthException:
             flash('Password must be at least 12 characters long!', category="error")
             return redirect(request.url)
@@ -90,15 +91,11 @@ def validatePassword():
             flash('Password is too common!', category="error")
             return redirect(request.url)
 
-    return render_template_string('''
-    <!doctype html>
-    <title>Check password correctness</title>
-    <h1>Input your password</h1>
-    {% for category, message in get_flashed_messages(with_categories=true) %}
-        <div class="flash {{ category }}">{{message}}</div> 
-    {% endfor %}
-    <form method=post enctype=multipart/form-data>
-      <input type=password id=pass name=pass>
-      <input type=submit value=Upload>
-    </form>
-    ''')
+        if ret == 0:
+            return redirect("/")
+            # additional text about registering
+            # code regarding login and stuff
+
+
+
+    return render_template("register.html")
