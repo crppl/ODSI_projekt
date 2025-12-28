@@ -2,12 +2,23 @@ from string import printable
 from random import choice
 import passlib.hash as plh
 import sqlite3
-from src.UserExceptions import PasswordLengthException, PasswordIllegalCharException, PasswordCommonException, PasswordLackingCharsException
+from src.UserExceptions import (
+    PasswordLengthException,
+    PasswordIllegalCharException,
+    PasswordCommonException,
+    PasswordLackingCharsException,
+    UsernameTakenException
+)
 
 ALLOWED_PASS_CHARS = [i for i in printable[:89]]
 
 def generate_salt():
     return "".join([choice(printable[:89]) for _ in range(16)])
+
+def connect_to_db():
+    db = sqlite3.connect("test.db")
+    return db, db.cursor()
+
 
 # char ent for 89 symbols ~= 6.47
 # 12 char password ~= 77 in entropy 
@@ -53,26 +64,23 @@ def validate_password(password:str):
 def write_user(username, password):
     ret:int
 
-    print("TODO: password validation error")
+    # print("TODO: password validation error")
     ret = validate_password(password)
-        # case 1:
-        #     print("Password too short")
-        # case 2:
-        #     print("illegal character")
-        # case 3:
-        #     print("Common password found")
-        # case 9:
-        #   print("Insert failed - Unknown server error occured")
-        # case _:
-        #     print("pog password")
 
     salt = generate_salt()
     hasher = plh.argon2.using(salt=salt, hash_len=47)    
     hash = hasher.hash(password)
     
-    db = sqlite3.connect("test.db")
-    sql = db.cursor()
-    
+    db, sql = connect_to_db()
+
+    try:
+        check_username_taken(username)
+    except UsernameTakenException:
+        raise UsernameTakenException
+    except:
+        ret = 9
+        return ret 
+        
     try:
         sql.execute("INSERT INTO USERS (username, password) VALUES (?,?)", username, salt + "|" + hash)
         ret = 0
@@ -80,7 +88,24 @@ def write_user(username, password):
         ret = 9
 
     sql.commit()
+    db.close()
     return ret
 
+def check_username_taken(username):
+    db, sql = connect_to_db()
 
+    try:
+        sql.execute("SELECT COUNT(*) FROM USERS WHERE username = ?", username)
+        if int(sql.fetchall()[0][0]) != 0:
+            raise UsernameTakenException
+    except UsernameTakenException:
+        db.close()
+        raise UsernameTakenException
+    except:
+        db.close()
+        return False
+    
+    db.close()
+    return True
+    
 

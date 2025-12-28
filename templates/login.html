@@ -1,31 +1,30 @@
 <!doctype html>
-<title>Registration</title>
+<title>Login</title>
 
 <head></head>
 <body>
-<h1>Obvious Directional Addressing System - Registration form</h1>
+<h1>Obvious Directional Addressing System - Login page</h1>
+
+Please input your credentials to log in.
+
 {% for category, message in get_flashed_messages(with_categories=true) %}
     <div class="flash {{ category }}" style="color:red">{{message}}</div> 
 {% endfor %}
+
 <form method=post enctype=multipart/form-data>
     <input type="text" id="unam" name="unam"> <br>
     <input type="password" id="pass" name="pass"> <br>
     <input type="submit" value="Upload">
 </form>
 
-Your password should:
-<ul>
-    <li>
-        Contain at least 12 characters;
-    </li>
-    <li>
-        Contain at least 2 capital letters;
-    </li>
-    <li>
-        Contain at least 1 number digit;
-    </li>
-    <li>
-        Contain at least 2 special characters: !"#$%&'()*+,-./:;<=>?@[\]^_
-    </li>
-</ul>
+<br>
+
+Haven't registered yet? 
+
+<br>
+
+<form method="post" enctype="multipart/form-data">
+    <input type="submit" id="register" name="register" value="Click here to register">
+</form>
+
 </body>

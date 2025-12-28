@@ -13,3 +13,9 @@ class PasswordLackingCharsException(Exception):
 class PasswordCommonException(Exception):
     def __init__(self, *args):
         super().__init__(*args)
+
+class UsernameTakenException(Exception):
+    def __init__(self, *args):
+        super().__init__(*args)
+
+

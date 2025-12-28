@@ -1,6 +1,12 @@
 from src.attachments import validate_filename, ALLOWED_EXTENSIONS, add_attachment
 from src.usermgmt import validate_password, write_user
-from src.UserExceptions import PasswordLengthException, PasswordCommonException, PasswordIllegalCharException, PasswordLackingCharsException
+from src.UserExceptions import (
+    PasswordLengthException, 
+    PasswordCommonException, 
+    PasswordIllegalCharException, 
+    PasswordLackingCharsException, 
+    UsernameTakenException
+)
 
 import sqlite3
 import os
@@ -26,13 +32,17 @@ app.secret_key = 'wbahtaldgjhg45i791ńaFMDsl'
 # db.close()
 # sql.close()
 
+username = None
 
-db = sqlite3.connect("test.db").cursor()
-print(db.execute("SELECT * FROM USERS").fetchall())
-db.close()
+
+# db = sqlite3.connect("test.db").cursor()
+# print(db.execute("SELECT * FROM USERS").fetchall())
+# db.close()
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
+    if username == None:
+        return redirect("/login")
     if request.method == 'POST':
         # check if the post request has the file part
         if 'file' not in request.files:
@@ -61,17 +71,39 @@ def upload_file():
     </form>
     '''
 
+@app.route("/login", methods=["GET", "POST"])
+def login_user():
+    if username == None:
+        if request.form.get("register") != None:
+            return redirect("/register")
+        else:
+            if request.method == "POST":
+                uname = request.form.get("unam")
+                passw = request.form.get("pass")
+                # try:
+                #     write_user(uname, passw)
+                # except Usera
+                print("TODO - implement")
+            elif request.method == "GET":
+                return render_template("login.html")
+    else:
+        print("TODO - implement")
+
+
 @app.route("/register", methods=["GET", "POST"])
-def validatePassword():
+def registerUser():
     if request.method == "POST":
+        unam = request.form.get("unam", "unknown")
         passw = request.form.get("pass", "unknown")
+        if unam is None:
+            flash('No username sent', category='error')
         if passw is None:
-            flash('No password sent')
+            flash('No password sent', category='error')
             return redirect(request.url)
-        
-        # password validation
+
+        # user validation
         try:
-            ret = validate_password(passw)
+            write_user(unam, passw)    
         except PasswordLengthException:
             flash('Password must be at least 12 characters long!', category="error")
             return redirect(request.url)
@@ -90,8 +122,14 @@ def validatePassword():
         except PasswordCommonException:
             flash('Password is too common!', category="error")
             return redirect(request.url)
+        except UsernameTakenException:
+            flash('Provided username is already taken!', category="error")
+            return redirect(request.url)
+        
+        # TODO - continue registration code
 
-        if ret == 0:
+
+        # if ret == 0:
             return redirect("/")
             # additional text about registering
             # code regarding login and stuff
