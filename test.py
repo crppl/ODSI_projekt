@@ -1,5 +1,5 @@
 from src.attachments import validate_filename, ALLOWED_EXTENSIONS, add_attachment
-from src.usermgmt import write_user, check_username_taken
+from src.usermgmt import write_user, check_username_taken, user_login
 from src.UserExceptions import (
     PasswordLengthException, 
     PasswordCommonException, 
@@ -41,6 +41,8 @@ username = None
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
+    global username
+    print(username)
     if username == None:
         return redirect("/login")
     if request.method == 'POST':
@@ -61,7 +63,7 @@ def upload_file():
             print(add_attachment(file, "admin"))
             # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             return redirect(url_for('upload_file', name=filename))
-    return '''
+    return render_template_string('''
     <!doctype html>
     <title>Upload new File</title>
     <h1>Upload new File</h1>
@@ -69,10 +71,11 @@ def upload_file():
       <input type=file name=file>
       <input type=submit value=Upload>
     </form>
-    '''
+    ''')
 
 @app.route("/login", methods=["GET", "POST"])
 def login_user():
+    global username
     if username == None:
         if request.form.get("register") != None:
             return redirect("/register")
@@ -80,22 +83,30 @@ def login_user():
             if request.method == "POST":
                 uname = request.form.get("unam")
                 passw = request.form.get("pass")
-                if not check_username_taken(uname):
-                    flash('User with this username not found!')
+                try:
+                    if not check_username_taken(uname):
+                        flash('Username not found!', category="error")
+                        return redirect(request.url)
+                except UsernameTakenException:
+                    if user_login(uname, passw):
+                        username = uname
+                        return redirect("/")
+                    else:
+                        flash('Incorrect credentials!', category="error")
+                        return redirect(request.url)
+                except:
+                    flash('Unknown exception occured!', category="error")
                     return redirect(request.url)
-                # try:
-                #     write_user(uname, passw)
-                # except Usera
-                print("TODO - implement")
             elif request.method == "GET":
                 return render_template("login.html")
     else:
-        print("TODO - implement")
+        return redirect("/")
 
 
 @app.route("/register", methods=["GET", "POST"])
 def registerUser():
     if request.method == "POST":
+        ret:int
         unam = request.form.get("unam", "unknown")
         passw = request.form.get("pass", "unknown")
         if unam is None:
@@ -104,9 +115,9 @@ def registerUser():
             flash('No password sent', category='error')
             return redirect(request.url)
 
-        # user validation
+        # user writing
         try:
-            write_user(unam, passw)    
+            ret = write_user(unam, passw)    
         except PasswordLengthException:
             flash('Password must be at least 12 characters long!', category="error")
             return redirect(request.url)
@@ -129,8 +140,14 @@ def registerUser():
             flash('Provided username is already taken!', category="error")
             return redirect(request.url)
     
-        return redirect("/login")
+        if ret == 0:
+            flash('User registered correctly! Please log in.', category="success")
+            return redirect("/login")
         
+        else:
+            flash('Unknown error occured.', category="error")
+            return redirect("/login")
+
         # TODO - continue registration code
 
 

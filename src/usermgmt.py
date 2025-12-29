@@ -17,8 +17,9 @@ def generate_salt():
 
 def connect_to_db():
     db = sqlite3.connect("test.db")
-    return db, db.cursor()
-
+    sql = db.cursor()
+    print(sql.execute("SELECT * FROM USERS").fetchall())
+    return db, sql
 
 # char ent for 89 symbols ~= 6.47
 # 12 char password ~= 77 in entropy 
@@ -67,26 +68,35 @@ def write_user(username, password):
     # print("TODO: password validation error")
     ret = validate_password(password)
 
-    if not check_username_taken(username):
+    
+    if check_username_taken(username):
         return
-    
-    print("aaaaa")
-    
+
     salt = generate_salt()
     hasher = plh.argon2.using(salt=salt, hash_len=47)    
-    hash = hasher.hash(password)
+    ghash = hasher.hash(password)
+
+    print(salt, ghash)
     
     db, sql = connect_to_db()
 
-    print(username, salt, hash, sep="\n")
+    print(username, salt, ghash, sep="\n")
         
     try:
-        sql.execute("INSERT INTO USERS (username, password) VALUES (?,?)", username, salt + "|" + hash.split(",p=", 1)[1])
+        sql.execute("INSERT INTO USERS (username, password) VALUES (?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1],))
+        db.commit()
         ret = 0
-    except:
+    except Exception as e:
+        print("User registration - unknown exception occured!\n", e)
         ret = 9
 
-    sql.commit()
+
+    print("\n\n============= FINAL CHECK - User registration =============")
+
+    print("ret value:", ret)
+
+    print("users data:", sql.execute("SELECT * FROM USERS").fetchall())
+
     db.close()
     return ret
 
@@ -94,21 +104,22 @@ def check_username_taken(username):
     db, sql = connect_to_db()
 
     try:
-        sql.execute("SELECT COUNT(*) FROM USERS WHERE username = ?", username)
+        sql.execute("SELECT COUNT(*) FROM users WHERE username = (?)", (username,))
         number = sql.fetchall()[0][0]
-        print("================", number, "================")
+        # print("================", number, "================")
         if number != 0:
             raise UsernameTakenException
     except UsernameTakenException:
-        print("Username Taken!!!")
         db.close()
         raise UsernameTakenException
-    except:
+    except Exception as e:
+        print("Uncpecified exception!")
+        print(e)
         db.close()
-        return False
+        return True
     
     db.close()
-    return True
+    return False
 
 
 def check_hash(salt, ahash, passw):
@@ -123,7 +134,7 @@ def check_hash(salt, ahash, passw):
 def user_login(username, password):
     db, sql = connect_to_db()
     try:
-        sql.execute("SELECT * FROM users WHERE username = ?", username)
+        sql.execute("SELECT * FROM users WHERE username = ?", (username,))
     except:
         db.close()
         return False
@@ -131,7 +142,9 @@ def user_login(username, password):
 
     salt, acthash = str(sql.fetchall()[0][1]).split("|")
 
-    return check_hash(salt, acthash, password)
+    print(salt, acthash, sep="\n")
+
+    return check_hash(salt.encode(), acthash, password)
 
 
     db.close()
