@@ -63,15 +63,8 @@ def upload_file():
             print(add_attachment(file, "admin"))
             # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             return redirect(url_for('upload_file', name=filename))
-    return render_template_string('''
-    <!doctype html>
-    <title>Upload new File</title>
-    <h1>Upload new File</h1>
-    <form method=post enctype=multipart/form-data>
-      <input type=file name=file>
-      <input type=submit value=Upload>
-    </form>
-    ''')
+    return render_template("main.html", username=username)
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login_user():
@@ -147,14 +140,6 @@ def registerUser():
         else:
             flash('Unknown error occured.', category="error")
             return redirect("/login")
-
-        # TODO - continue registration code
-
-
-        # if ret == 0:
-            # return redirect("/")
-            # additional text about registering
-            # code regarding login and stuff
 
 
 

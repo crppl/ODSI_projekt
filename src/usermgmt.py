@@ -144,7 +144,6 @@ def user_login(username, password):
 
     print(salt, acthash, sep="\n")
 
-    return check_hash(salt.encode(), acthash, password)
-
-
     db.close()
+
+    return check_hash(salt.encode(), acthash, password)
