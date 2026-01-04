@@ -1,0 +1,39 @@
+.naviPanelDiv {
+    min-width: 100%;
+    min-height: 80px;
+}
+.naviPanelTitleDiv {
+    display: inline-flex;
+    float:center;
+    text-align:center;
+    align-self: center;
+    /* max-width:75% */
+}
+.logoutDiv {
+    display:inline-flex;
+    float: right;
+    align-self: top;
+    text-align: right;
+}
+
+
+.keygenDiv {
+    float: left;
+    color: purple;
+    min-width: 100%;
+    margin: 20px;
+}
+.fileinputDiv {
+    float: left;
+    color: darkred;
+    min-width: 100%;
+    margin: 20px;
+}
+.fileInputForm {
+    border-style: solid;
+    border-radius: 5px;
+    border-width: 2px;
+    border-color:black;
+    background-color: darkgrey;
+    width:fit-content;
+}

@@ -2,6 +2,7 @@ from string import printable
 from random import choice
 import passlib.hash as plh
 import sqlite3
+
 from src.UserExceptions import (
     PasswordLengthException,
     PasswordIllegalCharException,
@@ -9,6 +10,8 @@ from src.UserExceptions import (
     PasswordLackingCharsException,
     UsernameTakenException
 )
+
+from src.keymgmt import generateKeypair
 
 ALLOWED_PASS_CHARS = [i for i in printable[:89]]
 
@@ -76,6 +79,8 @@ def write_user(username, password):
     hasher = plh.argon2.using(salt=salt, hash_len=47)    
     ghash = hasher.hash(password)
 
+    rsa_keypair = generateKeypair()
+
     print(salt, ghash)
     
     db, sql = connect_to_db()
@@ -83,7 +88,7 @@ def write_user(username, password):
     print(username, salt, ghash, sep="\n")
         
     try:
-        sql.execute("INSERT INTO USERS (username, password) VALUES (?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1],))
+        sql.execute("INSERT INTO USERS (username, password, pubkey) VALUES (?,?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1], rsa_keypair.public_key().export_key().decode(),))
         db.commit()
         ret = 0
     except Exception as e:
@@ -98,7 +103,7 @@ def write_user(username, password):
     print("users data:", sql.execute("SELECT * FROM USERS").fetchall())
 
     db.close()
-    return ret
+    return ret, rsa_keypair.export_key()
 
 def check_username_taken(username):
     db, sql = connect_to_db()

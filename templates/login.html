@@ -9,20 +9,16 @@ Please input your credentials to log in.
 
 {% for category, message in get_flashed_messages(with_categories=true) %}
     {% if category == "error" %}
-        {% block content_error %}
         <div class="flash {{ category }}" style="color:red">{{message}}</div> 
-        {% endblock %}
     {% elif category == "success" %}
-        {% block content_success %}
         <div class="flash {{ category }}" style="color:lime">{{message}}</div> 
-        {% endblock %}
     {% endif %}
 {% endfor %}
 
 <form method=post enctype=multipart/form-data>
     <input type="text" id="unam" name="unam"> <br>
     <input type="password" id="pass" name="pass"> <br>
-    <input type="submit" value="Upload">
+    <input type="submit" value="Log in">
 </form>
 
 <br>

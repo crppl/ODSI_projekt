@@ -9,9 +9,10 @@ from src.UserExceptions import (
 )
 
 import sqlite3
-import os
+# import os
+from io import BytesIO
 
-from flask import Flask, request, redirect, flash, url_for, render_template_string, render_template
+from flask import Flask, request, redirect, flash, url_for, render_template_string, render_template, send_file
 from werkzeug.utils import secure_filename
 
 
@@ -20,17 +21,17 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = './files'
 app.secret_key = 'wbahtaldgjhg45i791ńaFMDsl'
 
-# sql = sqlite3.connect("test.db")
-# db = sql.cursor()
-# db.execute("DROP TABLE IF EXISTS USERS;")
-# db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL);")
-# db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
-# print(db.execute("SELECT * FROM USERS;").fetchall())
-# db.execute('''INSERT INTO USERS (username, password) VALUES('admin', 'gvba1234asdf5678|fghhgghhjdjdjdjd') ''')
-# print(db.execute("SELECT * FROM USERS;").fetchall())
-# sql.commit()
-# db.close()
-# sql.close()
+sql = sqlite3.connect("test.db")
+db = sql.cursor()
+db.execute("DROP TABLE IF EXISTS USERS;")
+db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL);")
+db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
+print(db.execute("SELECT * FROM USERS;").fetchall())
+db.execute('''INSERT INTO USERS (username, password, pubkey) VALUES('admin', 'gvba1234asdf5678|fghhgghhjdjdjdjd', 'abcd') ''')
+print(db.execute("SELECT * FROM USERS;").fetchall())
+sql.commit()
+db.close()
+sql.close()
 
 username = None
 
@@ -42,10 +43,21 @@ username = None
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     global username
-    print(username)
-    if username == None:
-        return redirect("/login")
+    print("!!!!!!!!! REMEMBER TO UNCOMMENT CHECKING LOGIN !!!!!!!!")
+    # if username == None:
+    #     return redirect("/login")
     if request.method == 'POST':
+        # check if logout
+
+        if request.form.get("logout", "unknown") != "unknown":
+            username = None;
+            flash("Logged out successfully!", category="success")
+            return redirect("/")
+        
+        if request.form.get("keygen", "unknown") != "unknown":
+            flash("New key pair has been generated and updated!", category="success")
+            return redirect("/")
+
         # check if the post request has the file part
         if 'file' not in request.files:
             flash('No file part')
@@ -96,6 +108,9 @@ def login_user():
         return redirect("/")
 
 
+@app.route("/download_key/<uname>", methods=["GET"])
+def downloadKey(uname):
+
 @app.route("/register", methods=["GET", "POST"])
 def registerUser():
     if request.method == "POST":
@@ -110,7 +125,7 @@ def registerUser():
 
         # user writing
         try:
-            ret = write_user(unam, passw)    
+            ret, privkey = write_user(unam, passw)
         except PasswordLengthException:
             flash('Password must be at least 12 characters long!', category="error")
             return redirect(request.url)
