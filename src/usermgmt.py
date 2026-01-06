@@ -3,6 +3,7 @@ from random import choice
 import passlib.hash as plh
 import sqlite3
 
+
 from src.UserExceptions import (
     PasswordLengthException,
     PasswordIllegalCharException,
@@ -11,7 +12,7 @@ from src.UserExceptions import (
     UsernameTakenException
 )
 
-from src.keymgmt import generateKeypair
+from src.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey
 
 ALLOWED_PASS_CHARS = [i for i in printable[:89]]
 
@@ -49,29 +50,24 @@ def validate_password(password:str):
             case 2:
                 if n < 2:
                     lacking += "at least 2 special characters;"
-                    # raise PasswordLackingCharsException('Password is lacking special!')
             case 1 :
                 if n < 2:
                     lacking += "at least 2 capital letters;"
-                    # raise PasswordLackingCharsException('Password is lacking capital letters!')
             case 0:
                 if n < 1:
                     lacking += "at least 1 number;"
-                    # raise PasswordLackingCharsException('Password is lacking numbers!')
-
+                    
     lacking = lacking.rsplit(";",1)[0]
 
     if len(lacking) != 0:
         raise PasswordLackingCharsException(lacking)
     return 0
 
-def write_user(username, password):
+def write_user(username:str, password:str):
     ret:int
 
-    # print("TODO: password validation error")
     ret = validate_password(password)
 
-    
     if check_username_taken(username):
         return
 
@@ -79,16 +75,24 @@ def write_user(username, password):
     hasher = plh.argon2.using(salt=salt, hash_len=47)    
     ghash = hasher.hash(password)
 
-    rsa_keypair = generateKeypair()
+    rsa_keypair = generate_keypair()
 
     print(salt, ghash)
     
     db, sql = connect_to_db()
 
+    priv_key = encrypt_privkey(salt=salt, keypair=rsa_keypair, password=password)
+
+    print(priv_key, "\n\n")
+    print(priv_key.decode("unicode_escape"))
+
+
     print(username, salt, ghash, sep="\n")
+
+
         
     try:
-        sql.execute("INSERT INTO USERS (username, password, pubkey) VALUES (?,?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1], rsa_keypair.public_key().export_key().decode(),))
+        sql.execute("INSERT INTO USERS (username, password, pubkey, privkey) VALUES (?,?,?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1], rsa_keypair.public_key().export_key().decode(),priv_key,))
         db.commit()
         ret = 0
     except Exception as e:
@@ -103,7 +107,7 @@ def write_user(username, password):
     print("users data:", sql.execute("SELECT * FROM USERS").fetchall())
 
     db.close()
-    return ret, rsa_keypair.export_key()
+    return ret
 
 def check_username_taken(username):
     db, sql = connect_to_db()
@@ -127,16 +131,17 @@ def check_username_taken(username):
     return False
 
 
-def check_hash(salt, ahash, passw):
+def check_hash(salt:bytes, ahash:str, passw:str, enc_key:bytes):
     hasher = plh.argon2.using(salt=salt, hash_len=47)    
     gh = hasher.hash(passw)
 
     if gh.split(",p=", 1)[1] == ahash:
-        return True
-    else:
-        return False
 
-def user_login(username, password):
+        return True, decrypt_privkey(salt, passw, enc_key)
+    else:
+        return False, None
+
+def login_user(username, password):
     db, sql = connect_to_db()
     try:
         sql.execute("SELECT * FROM users WHERE username = ?", (username,))
@@ -144,11 +149,14 @@ def user_login(username, password):
         db.close()
         return False
 
+    ret = sql.fetchall()
 
-    salt, acthash = str(sql.fetchall()[0][1]).split("|")
+    salt, acthash = str(ret[0][1]).split("|")
+
+    enc_key = ret[0][3]
 
     print(salt, acthash, sep="\n")
 
     db.close()
 
-    return check_hash(salt.encode(), acthash, password)
+    return check_hash(salt.encode(), acthash, password, enc_key)

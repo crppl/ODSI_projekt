@@ -1,5 +1,5 @@
 from src.attachments import validate_filename, ALLOWED_EXTENSIONS, add_attachment
-from src.usermgmt import write_user, check_username_taken, user_login
+from src.usermgmt import write_user, check_username_taken, login_user
 from src.UserExceptions import (
     PasswordLengthException, 
     PasswordCommonException, 
@@ -8,12 +8,16 @@ from src.UserExceptions import (
     UsernameTakenException
 )
 
+from Cryptodome.PublicKey import RSA
+
 import sqlite3
 # import os
 from io import BytesIO
 
 from flask import Flask, request, redirect, flash, url_for, render_template_string, render_template, send_file
 from werkzeug.utils import secure_filename
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 
 
@@ -21,19 +25,28 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = './files'
 app.secret_key = 'wbahtaldgjhg45i791ńaFMDsl'
 
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["5 per 90 seconds"],
+    strategy="fixed-window"
+)
+
+
 sql = sqlite3.connect("test.db")
 db = sql.cursor()
 db.execute("DROP TABLE IF EXISTS USERS;")
-db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL);")
+db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL, privkey BLOB NOT NULL);")
 db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
 print(db.execute("SELECT * FROM USERS;").fetchall())
-db.execute('''INSERT INTO USERS (username, password, pubkey) VALUES('admin', 'gvba1234asdf5678|fghhgghhjdjdjdjd', 'abcd') ''')
+db.execute('''INSERT INTO USERS (username, password, pubkey, privkey) VALUES('admin', 'gvba1234asdf5678|fghhgghhjdjdjdjd', 'abcd', 'abcd') ''')
 print(db.execute("SELECT * FROM USERS;").fetchall())
 sql.commit()
 db.close()
 sql.close()
 
 username = None
+userKeypair = None
 
 
 # db = sqlite3.connect("test.db").cursor()
@@ -41,8 +54,10 @@ username = None
 # db.close()
 
 @app.route('/', methods=['GET', 'POST'])
+@limiter.limit("100 per minute")
 def upload_file():
     global username
+    global userKeypair
     print("!!!!!!!!! REMEMBER TO UNCOMMENT CHECKING LOGIN !!!!!!!!")
     # if username == None:
     #     return redirect("/login")
@@ -75,12 +90,13 @@ def upload_file():
             print(add_attachment(file, "admin"))
             # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             return redirect(url_for('upload_file', name=filename))
-    return render_template("main.html", username=username)
+    return render_template("main.html", username=username, userkey=userKeypair.export_key().decode())
 
 
 @app.route("/login", methods=["GET", "POST"])
-def login_user():
+def loginUser():
     global username
+    global userKeypair
     if username == None:
         if request.form.get("register") != None:
             return redirect("/register")
@@ -93,8 +109,11 @@ def login_user():
                         flash('Username not found!', category="error")
                         return redirect(request.url)
                 except UsernameTakenException:
-                    if user_login(uname, passw):
+                    (login_success, pk_blob) = login_user(uname, passw)
+                    if login_success:
                         username = uname
+                        print(pk_blob)
+                        userKeypair = RSA.import_key(pk_blob)
                         return redirect("/")
                     else:
                         flash('Incorrect credentials!', category="error")
@@ -108,10 +127,11 @@ def login_user():
         return redirect("/")
 
 
-@app.route("/download_key/<uname>", methods=["GET"])
-def downloadKey(uname):
+# @app.route("/download_key/<uname>", methods=["GET"])
+# def downloadKey(uname):
 
 @app.route("/register", methods=["GET", "POST"])
+@limiter.limit("100 per day")
 def registerUser():
     if request.method == "POST":
         ret:int
@@ -125,7 +145,7 @@ def registerUser():
 
         # user writing
         try:
-            ret, privkey = write_user(unam, passw)
+            ret = write_user(unam, passw)
         except PasswordLengthException:
             flash('Password must be at least 12 characters long!', category="error")
             return redirect(request.url)
