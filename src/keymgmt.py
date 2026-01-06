@@ -1,5 +1,4 @@
 from Cryptodome.PublicKey import RSA
-from Cryptodome.Cipher import PKCS1_OAEP
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id as cptArgon
 from Cryptodome.Cipher import AES
 from passlib.hash import scrypt
@@ -23,8 +22,8 @@ def generate_keypair():
 def nullpadding(data, length=16):
     return data + b"\x00"*(length-len(data) % length) 
 
-def encrypt_privkey_BAD(salt:bytes, password:str, keypair:RSA):
-    return chr(16-len(keypair.export_key()) % 16).encode() + AES.new(cptArgon(salt=salt, length=32, iterations=1, lanes=4, memory_cost=65536).derive(password.encode()), mode=AES.MODE_CBC, iv=salt).encrypt(nullpadding(keypair.export_key()))
+# def encrypt_privkey_BAD(salt:bytes, password:str, keypair:RSA):
+#     return chr(16-len(keypair.export_key()) % 16).encode() + AES.new(cptArgon(salt=salt, length=32, iterations=1, lanes=4, memory_cost=65536).derive(password.encode()), mode=AES.MODE_CBC, iv=salt).encrypt(nullpadding(keypair.export_key()))
 
 def encrypt_privkey(salt:bytes, password:str, keypair:RSA):
     key = b64decode(scrypt.using(rounds=20, salt=salt).hash(password).rsplit("$", 1)[1] + '==')

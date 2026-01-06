@@ -12,6 +12,8 @@ from src.UserExceptions import (
     UsernameTakenException
 )
 
+# from src.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey
+
 from src.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey
 
 ALLOWED_PASS_CHARS = [i for i in printable[:89]]

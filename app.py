@@ -33,17 +33,17 @@ limiter = Limiter(
 )
 
 
-sql = sqlite3.connect("test.db")
-db = sql.cursor()
-db.execute("DROP TABLE IF EXISTS USERS;")
-db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL, privkey BLOB NOT NULL);")
-db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
-print(db.execute("SELECT * FROM USERS;").fetchall())
-db.execute('''INSERT INTO USERS (username, password, pubkey, privkey) VALUES('admin', 'gvba1234asdf5678|fghhgghhjdjdjdjd', 'abcd', 'abcd') ''')
-print(db.execute("SELECT * FROM USERS;").fetchall())
-sql.commit()
-db.close()
-sql.close()
+# sql = sqlite3.connect("test.db")
+# db = sql.cursor()
+# db.execute("DROP TABLE IF EXISTS USERS;")
+# db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL, privkey BLOB NOT NULL);")
+# db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
+# print(db.execute("SELECT * FROM USERS;").fetchall())
+# db.execute('''INSERT INTO USERS (username, password, pubkey, privkey) VALUES('admin', 'gvba1234asdf5678|fghhgghhjdjdjdjd', 'abcd', 'abcd') ''')
+# print(db.execute("SELECT * FROM USERS;").fetchall())
+# sql.commit()
+# db.close()
+# sql.close()
 
 username = None
 userKeypair = None
@@ -75,7 +75,7 @@ def upload_file():
 
         # check if the post request has the file part
         if 'file' not in request.files:
-            flash('No file part')
+            flash('No file')
             return redirect(request.url)
         file = request.files['file']
         print(type(file))
@@ -91,6 +91,9 @@ def upload_file():
             # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             return redirect(url_for('upload_file', name=filename))
     return render_template("main.html", username=username, userkey=userKeypair.export_key().decode())
+
+
+
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -126,9 +129,6 @@ def loginUser():
     else:
         return redirect("/")
 
-
-# @app.route("/download_key/<uname>", methods=["GET"])
-# def downloadKey(uname):
 
 @app.route("/register", methods=["GET", "POST"])
 @limiter.limit("100 per day")
@@ -175,7 +175,16 @@ def registerUser():
         else:
             flash('Unknown error occured.', category="error")
             return redirect("/login")
-
-
-
+        
     return render_template("register.html")
+
+
+@app.route("/send", methods=["GET", "POST"])
+def sendMessage():
+    global username, userKeypair
+    # if username == None:
+    #     flash("Not logged in!", category="error")
+    #     return redirect("/login")
+    # else:
+    if request.method == "GET":
+        return render_template("send_message.html")
