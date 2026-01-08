@@ -7,31 +7,57 @@ from src.UserExceptions import (
     PasswordLackingCharsException, 
     UsernameTakenException
 )
+from src.msgmgmt import send_message_TEST
 
 from Cryptodome.PublicKey import RSA
 
-import sqlite3
+# import sqlite3
 # import os
-from io import BytesIO
+# from io import BytesIO
 
-from flask import Flask, request, redirect, flash, url_for, render_template_string, render_template, send_file
+from flask import (
+    Flask, 
+    request, 
+    redirect, 
+    flash, 
+    url_for, 
+    render_template_string, 
+    render_template, 
+    send_file,
+    session
+)
 from werkzeug.utils import secure_filename
-from flask_limiter import Limiter
+from flask_limiter import Limiter, Limit
 from flask_limiter.util import get_remote_address
+from flask_session import Session
+from redis import Redis
 
-
+# TODO - make validating username function
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = './files'
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_TYPE='redis',
+    SESSION_REDIS=Redis.from_url("redis://localhost:6379"),
+    SESSION_PERMANENT=False,
+    SESSION_USE_SIGNER=True
+    )
+
 app.secret_key = 'wbahtaldgjhg45i791ńaFMDsl'
 
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["5 per 90 seconds"],
+    default_limits=[
+        Limit("5/90second", methods=["POST"])
+        ],
     strategy="fixed-window"
 )
 
+Session(app)
 
 # sql = sqlite3.connect("test.db")
 # db = sql.cursor()
@@ -45,8 +71,8 @@ limiter = Limiter(
 # db.close()
 # sql.close()
 
-username = None
-userKeypair = None
+# username = None
+# userKeypair = None
 
 
 # db = sqlite3.connect("test.db").cursor()
@@ -54,53 +80,45 @@ userKeypair = None
 # db.close()
 
 @app.route('/', methods=['GET', 'POST'])
-@limiter.limit("100 per minute")
 def upload_file():
-    global username
-    global userKeypair
-    print("!!!!!!!!! REMEMBER TO UNCOMMENT CHECKING LOGIN !!!!!!!!")
-    # if username == None:
-    #     return redirect("/login")
-    if request.method == 'POST':
-        # check if logout
+    print(session.keys())
+    if 'username' not in session.keys():
+        return redirect("/login")
+    else:
+        if request.method == 'POST':
+            # check if logout
+            if request.form.get("logout", "unknown") != "unknown":
+                session.clear()
+                flash("Logged out successfully!", category="success")
+                return redirect("/")
+            
+            if request.form.get("keygen", "unknown") != "unknown":
+                flash("New key pair has been generated and updated!", category="success")
+                return redirect("/")
 
-        if request.form.get("logout", "unknown") != "unknown":
-            username = None;
-            flash("Logged out successfully!", category="success")
-            return redirect("/")
-        
-        if request.form.get("keygen", "unknown") != "unknown":
-            flash("New key pair has been generated and updated!", category="success")
-            return redirect("/")
-
-        # check if the post request has the file part
-        if 'file' not in request.files:
-            flash('No file')
-            return redirect(request.url)
-        file = request.files['file']
-        print(type(file))
-        # If the user does not select a file, the browser submits an
-        # empty file without a filename.
-        if file.filename == '':
-            flash('No selected file')
-            return redirect(request.url)
-        if file and validate_filename(file.filename):
-            filename = secure_filename(file.filename)
-            # print(file.stream.read())
-            print(add_attachment(file, "admin"))
-            # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            return redirect(url_for('upload_file', name=filename))
-    return render_template("main.html", username=username, userkey=userKeypair.export_key().decode())
-
-
-
+            # check if the post request has the file part
+            if 'file' not in request.files:
+                flash('No file')
+                return redirect(request.url)
+            file = request.files['file']
+            print(type(file))
+            # If the user does not select a file, the browser submits an
+            # empty file without a filename.
+            if file.filename == '':
+                flash('No selected file')
+                return redirect(request.url)
+            if file and validate_filename(file.filename):
+                filename = secure_filename(file.filename)
+                # print(file.stream.read())
+                print(add_attachment(file, "admin"))
+                # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                return redirect(url_for('upload_file', name=filename))
+        return render_template("main.html", username=session['username'])#, userkey=userKeypair.export_key().decode())
 
 
 @app.route("/login", methods=["GET", "POST"])
 def loginUser():
-    global username
-    global userKeypair
-    if username == None:
+    if 'username' not in session.keys():
         if request.form.get("register") != None:
             return redirect("/register")
         else:
@@ -114,9 +132,9 @@ def loginUser():
                 except UsernameTakenException:
                     (login_success, pk_blob) = login_user(uname, passw)
                     if login_success:
-                        username = uname
+                        session['username'] = uname
                         print(pk_blob)
-                        userKeypair = RSA.import_key(pk_blob)
+                        session['prkey'] = pk_blob
                         return redirect("/")
                     else:
                         flash('Incorrect credentials!', category="error")
@@ -131,8 +149,8 @@ def loginUser():
 
 
 @app.route("/register", methods=["GET", "POST"])
-@limiter.limit("100 per day")
 def registerUser():
+    
     if request.method == "POST":
         ret:int
         unam = request.form.get("unam", "unknown")
@@ -180,11 +198,17 @@ def registerUser():
 
 
 @app.route("/send", methods=["GET", "POST"])
+@limiter.limit("10 per 1 minute", methods=["POST"])
 def sendMessage():
-    global username, userKeypair
-    # if username == None:
-    #     flash("Not logged in!", category="error")
-    #     return redirect("/login")
-    # else:
-    if request.method == "GET":
+    if 'username' not in session.keys() or 'prkey' not in session.keys():
+        session.clear()
+        return redirect("/login")
+
+    elif request.method == "GET":
         return render_template("send_message.html")
+    elif request.method == "POST":
+        message = request.form.get("message", "unknown")
+        if message != "unknown":
+            send_message_TEST(session['prkey'], message)
+        else:
+            print("TODO - implement no message code")

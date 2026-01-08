@@ -12,14 +12,12 @@ from src.UserExceptions import (
     UsernameTakenException
 )
 
-# from src.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey
-
 from src.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey
 
 ALLOWED_PASS_CHARS = [i for i in printable[:89]]
 
 def generate_salt():
-    return "".join([choice(printable[:89]) for _ in range(16)]).encode()
+    return "".join([choice(ALLOWED_PASS_CHARS) for _ in range(16)]).encode()
 
 def connect_to_db():
     db = sqlite3.connect("test.db")
@@ -79,22 +77,24 @@ def write_user(username:str, password:str):
 
     rsa_keypair = generate_keypair()
 
-    print(salt, ghash)
+    # print(salt, ghash)
     
+    keysalt = generate_salt()
+
+   
+
+    priv_key = encrypt_privkey(salt=keysalt, keypair=rsa_keypair, password=password)
+
+    # print(priv_key, "\n\n")
+    # print(priv_key.decode("unicode_escape"))
+
+    # print(username, salt, ghash, sep="\n")
+        
+
     db, sql = connect_to_db()
 
-    priv_key = encrypt_privkey(salt=salt, keypair=rsa_keypair, password=password)
-
-    print(priv_key, "\n\n")
-    print(priv_key.decode("unicode_escape"))
-
-
-    print(username, salt, ghash, sep="\n")
-
-
-        
     try:
-        sql.execute("INSERT INTO USERS (username, password, pubkey, privkey) VALUES (?,?,?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1], rsa_keypair.public_key().export_key().decode(),priv_key,))
+        sql.execute("INSERT INTO USERS (username, password, pubkey, privkey) VALUES (?,?,?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1], rsa_keypair.public_key().export_key().decode(), priv_key,))
         db.commit()
         ret = 0
     except Exception as e:
@@ -102,11 +102,11 @@ def write_user(username:str, password:str):
         ret = 9
 
 
-    print("\n\n============= FINAL CHECK - User registration =============")
+    # print("\n\n============= FINAL CHECK - User registration =============")
 
-    print("ret value:", ret)
+    # print("ret value:", ret)
 
-    print("users data:", sql.execute("SELECT * FROM USERS").fetchall())
+    # print("users data:", sql.execute("SELECT * FROM USERS").fetchall())
 
     db.close()
     return ret
@@ -124,8 +124,8 @@ def check_username_taken(username):
         db.close()
         raise UsernameTakenException
     except Exception as e:
-        print("Uncpecified exception!")
-        print(e)
+        # print("Uncpecified exception!")
+        # print(e)
         db.close()
         return True
     
@@ -136,10 +136,8 @@ def check_username_taken(username):
 def check_hash(salt:bytes, ahash:str, passw:str, enc_key:bytes):
     hasher = plh.argon2.using(salt=salt, hash_len=47)    
     gh = hasher.hash(passw)
-
     if gh.split(",p=", 1)[1] == ahash:
-
-        return True, decrypt_privkey(salt, passw, enc_key)
+        return True, decrypt_privkey(passw, enc_key)
     else:
         return False, None
 
@@ -152,13 +150,9 @@ def login_user(username, password):
         return False
 
     ret = sql.fetchall()
-
     salt, acthash = str(ret[0][1]).split("|")
-
     enc_key = ret[0][3]
-
-    print(salt, acthash, sep="\n")
+    # print(salt, acthash, sep="\n")
 
     db.close()
-
     return check_hash(salt.encode(), acthash, password, enc_key)
