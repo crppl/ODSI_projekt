@@ -11,7 +11,7 @@ from src.msgmgmt import send_message_TEST
 
 from Cryptodome.PublicKey import RSA
 
-# import sqlite3
+import sqlite3
 # import os
 # from io import BytesIO
 
@@ -40,8 +40,8 @@ app.config.update(
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
-    SESSION_TYPE='redis',
-    SESSION_REDIS=Redis.from_url("redis://localhost:6379"),
+    SESSION_TYPE='filesystem',
+    # SESSION_REDIS=Redis.from_url("redis://localhost:6379"),
     SESSION_PERMANENT=False,
     SESSION_USE_SIGNER=True
     )
