@@ -33,6 +33,9 @@ from flask_session import Session
 from redis import Redis
 
 # TODO - make validating username function
+# max 20 chars from a-zA-Z1-9_-
+# unique
+# TODO - make email address registering AND TOTP on e-mail
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = './files'
@@ -41,7 +44,6 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
     SESSION_TYPE='filesystem',
-    # SESSION_REDIS=Redis.from_url("redis://localhost:6379"),
     SESSION_PERMANENT=False,
     SESSION_USE_SIGNER=True
     )
@@ -59,6 +61,7 @@ limiter = Limiter(
 
 Session(app)
 
+# !! For resetting users
 # sql = sqlite3.connect("test.db")
 # db = sql.cursor()
 # db.execute("DROP TABLE IF EXISTS USERS;")
@@ -70,6 +73,19 @@ Session(app)
 # sql.commit()
 # db.close()
 # sql.close()
+
+# !! For resetting messages
+sql = sqlite3.connect("test.db")
+db = sql.cursor()
+db.execute("DROP TABLE IF EXISTS MESSAGES;")
+db.execute("CREATE TABLE MESSAGES (msgid INT PRIMARY KEY, recievee NVARCHAR(20) NOT NULL, sendee NVARCHAR(20) NOT NULL, message_encrypted BLOB NOT NULL, encrypted_message BLOB NOT NULL);")
+db.execute("CREATE UNIQUE INDEX msgid ON MESSAGES (msgid);")
+print(db.execute("SELECT * FROM MESSAGES;").fetchall())
+sql.commit()
+db.close()
+sql.close()
+
+
 
 # username = None
 # userKeypair = None

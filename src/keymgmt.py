@@ -5,7 +5,7 @@ from passlib.hash import scrypt
 from base64 import b64decode
 
 def generate_keypair():
-    rsa_keys = RSA.generate(3072)
+    rsa_keys = RSA.generate(2048)
     # print(len(rsa_keys.export_key()))
     return rsa_keys
 
