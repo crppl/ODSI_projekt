@@ -62,12 +62,18 @@
     <div class="logoutDiv">
         <span>
             Logged in as: {{ username }} 
-            <form method="post" enctype="multipart/form-data">
-                <input type="submit" name="logout" value="logout">   
+            <form action={{url_for('logoutUser')}} method="post">
+                <input type="submit" name="logout" value="Logout">   
             </form>
         </span>
     </div>
 </div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+    {% if category == "send_success" %}
+        <div class="flash {{ category }}" style="color:lime">{{message}}</div> 
+    {% endif %}
+{% endfor %}
 
 <div class="keygenDiv">
     <span>

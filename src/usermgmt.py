@@ -22,7 +22,6 @@ def generate_salt():
 def connect_to_db():
     db = sqlite3.connect("test.db")
     sql = db.cursor()
-    print(sql.execute("SELECT * FROM USERS").fetchall())
     return db, sql
 
 # char ent for 89 symbols ~= 6.47
@@ -156,3 +155,14 @@ def login_user(username, password):
 
     db.close()
     return check_hash(salt.encode(), acthash, password, enc_key)
+
+def get_users():
+    db, sql = connect_to_db()
+    try:
+        ret = sql.execute("SELECT username FROM users").fetchall()
+    except:
+        print("TODO - more code to write")
+        pass
+
+    db.close()
+    return [(lambda x:x[0])(x) for x in ret]

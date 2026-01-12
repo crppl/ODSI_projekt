@@ -1,0 +1,59 @@
+<!doctype html>
+<title>Your messages</title>
+
+<head>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+
+</head>
+<body>
+
+<div class="naviPanelDiv"> 
+    <div class="naviPanelTitleDiv">
+        <span>
+            <h1>Obvious Directional Addressing System - Messages</h1>
+            <h2>Hello {{username}}, here are your messages:</h2>
+        </span>
+    </div>
+    <div class="logoutDiv">
+        <span>
+            Logged in as: {{ username }} 
+            <form action={{url_for('logoutUser')}} method="post">
+                <input type="submit" name="logout" value="Logout">   
+            </form>
+        </span>
+    </div>
+</div>
+
+<br>
+
+<div class="msgsMainDiv">
+    <div class="msgsUnreadDiv">
+        <span>
+            <h2 class="msgsUnread"> Unread messages: </h2>
+        </span>
+        {% for message in unread %}
+            <div class="msgsUnreadMsg">
+                from: {{message[0]}}
+                message: {{message[2]}}
+            </div>
+        {% endfor %}
+    </div>
+    <div class="msgsReadDiv">
+        <span>
+            <h2 class="msgsUnread"> Read messages: </h2>
+        </span>
+        {% for message in read %}
+            <div class="msgsUnreadMsg">
+                from: {{message[0]}}
+                message: {{message[2]}}
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<br>
+
+
+
+</body>

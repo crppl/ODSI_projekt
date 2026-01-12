@@ -8,11 +8,34 @@
 </head>
 <body>
 
+<div class="naviPanelDiv"> 
+    <div class="naviPanelTitleDiv">
+        <span>
+            <h1>Obvious Directional Addressing System - Send a message</h1>
+        </span>
+    </div>
+    <div class="logoutDiv">
+        <span>
+            Logged in as: {{ username }} 
+            <form action={{url_for('logoutUser')}} method="post">
+                <input type="submit" name="logout" value="Logout">   
+            </form>
+        </span>
+    </div>
+</div>
 
 <h1 style="color:red"> REMEMBER TO UNCOMMENT LOGIN CHECK!!! </h1>
 <div>
     <form method="post" enctype="multipart/form-data">
-        <textarea rows="25" cols="120" placeholder="Input your message here!" id="message" name="message"></textarea>
+        <select class="recSelect" id="recSelect" type="text" name="recSelect" required>
+            <option disabled selected>Select recipient!</option>
+            {% for rec in recipients%}
+                <option>{{rec}}</option>
+            {% endfor %}
+        </select>
+        <br>
+        <textarea rows="25" cols="120" placeholder="Input your message here!" id="message" name="message" required>
+        </textarea>
         <br>
         <span>
             <h4>Attachments:</h4> 
@@ -22,20 +45,7 @@
     </form>
 </div>
 
-<!-- <div class="fileinputDiv">
-    <span>
-        Attachments
-        <form class="fileInputForm" method=post enctype=multipart/form-data>
-            <input type=file name=file>
-            <input type=submit value=Upload>
-        </form>
-    </span>
-</div>
-<br> -->
-
 <br>
-
-{{userkey}}
 
 
 

@@ -1,5 +1,10 @@
 from src.attachments import validate_filename, ALLOWED_EXTENSIONS, add_attachment
-from src.usermgmt import write_user, check_username_taken, login_user
+from src.usermgmt import (
+    write_user,
+    check_username_taken,
+    login_user,
+    get_users
+)
 from src.UserExceptions import (
     PasswordLengthException, 
     PasswordCommonException, 
@@ -7,7 +12,10 @@ from src.UserExceptions import (
     PasswordLackingCharsException, 
     UsernameTakenException
 )
-from src.msgmgmt import send_message_TEST
+from src.msgmgmt import (
+    send_message,
+    get_user_messages
+)
 
 from Cryptodome.PublicKey import RSA
 
@@ -75,15 +83,15 @@ Session(app)
 # sql.close()
 
 # !! For resetting messages
-sql = sqlite3.connect("test.db")
-db = sql.cursor()
-db.execute("DROP TABLE IF EXISTS MESSAGES;")
-db.execute("CREATE TABLE MESSAGES (msgid INT PRIMARY KEY, recievee NVARCHAR(20) NOT NULL, sendee NVARCHAR(20) NOT NULL, message_encrypted BLOB NOT NULL, encrypted_message BLOB NOT NULL);")
-db.execute("CREATE UNIQUE INDEX msgid ON MESSAGES (msgid);")
-print(db.execute("SELECT * FROM MESSAGES;").fetchall())
-sql.commit()
-db.close()
-sql.close()
+# sql = sqlite3.connect("test.db")
+# db = sql.cursor()
+# db.execute("DROP TABLE IF EXISTS MESSAGES;")
+# db.execute("CREATE TABLE MESSAGES (msgid INTEGER PRIMARY KEY AUTOINCREMENT, recievee NVARCHAR(20) NOT NULL, sendee NVARCHAR(20) NOT NULL, message_encrypted BLOB NOT NULL, encrypted_message BLOB NOT NULL);")
+# db.execute("CREATE UNIQUE INDEX msgid ON MESSAGES (msgid);")
+# print(db.execute("SELECT * FROM MESSAGES;").fetchall())
+# sql.commit()
+# db.close()
+# sql.close()
 
 
 
@@ -97,17 +105,11 @@ sql.close()
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
-    print(session.keys())
+    # print(session.keys())
     if 'username' not in session.keys():
         return redirect("/login")
     else:
         if request.method == 'POST':
-            # check if logout
-            if request.form.get("logout", "unknown") != "unknown":
-                session.clear()
-                flash("Logged out successfully!", category="success")
-                return redirect("/")
-            
             if request.form.get("keygen", "unknown") != "unknown":
                 flash("New key pair has been generated and updated!", category="success")
                 return redirect("/")
@@ -117,7 +119,7 @@ def upload_file():
                 flash('No file')
                 return redirect(request.url)
             file = request.files['file']
-            print(type(file))
+            # print(type(file))
             # If the user does not select a file, the browser submits an
             # empty file without a filename.
             if file.filename == '':
@@ -126,7 +128,7 @@ def upload_file():
             if file and validate_filename(file.filename):
                 filename = secure_filename(file.filename)
                 # print(file.stream.read())
-                print(add_attachment(file, "admin"))
+                # print(add_attachment(file, "admin"))
                 # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                 return redirect(url_for('upload_file', name=filename))
         return render_template("main.html", username=session['username'])#, userkey=userKeypair.export_key().decode())
@@ -149,7 +151,7 @@ def loginUser():
                     (login_success, pk_blob) = login_user(uname, passw)
                     if login_success:
                         session['username'] = uname
-                        print(pk_blob)
+                        # print(pk_blob)
                         session['prkey'] = pk_blob
                         return redirect("/")
                     else:
@@ -166,7 +168,6 @@ def loginUser():
 
 @app.route("/register", methods=["GET", "POST"])
 def registerUser():
-    
     if request.method == "POST":
         ret:int
         unam = request.form.get("unam", "unknown")
@@ -191,7 +192,6 @@ def registerUser():
             '''
             for i in str(e).strip().split(";", 2):
                 text +=  i + ", "
-            # flash('''Password must contain:\n- At least 2 capital letters\n- At least 2 special characters(!"#$%&'()*+,-./:;<=>?@[\]^_)\n- At least one number''', category="error")
             text = text[:-2] + "."
             flash(text, category="error")
             return redirect(request.url)
@@ -220,11 +220,42 @@ def sendMessage():
         session.clear()
         return redirect("/login")
 
-    elif request.method == "GET":
-        return render_template("send_message.html")
-    elif request.method == "POST":
-        message = request.form.get("message", "unknown")
-        if message != "unknown":
-            send_message_TEST(session['prkey'], message)
-        else:
-            print("TODO - implement no message code")
+    else:
+        message = request.form.get("message", "")
+        if request.method == "GET":
+            return render_template("send_message.html", recipients=get_users(), message=message)
+        elif request.method == "POST":
+            reciever = request.form.get("recSelect", "unknown")
+            if message != "" and reciever != "unknown":
+                send_message(session['username'], reciever, session['prkey'], message)
+                flash("Message sent!", category="send_success")
+                return redirect("/")
+            else:
+                flash("", category="error")
+                return redirect(request.url)
+
+@app.route("/messages", methods=["GET"])
+@limiter.limit("10 per 1 minute", methods=["POST"])
+def listMessages():
+    if 'username' not in session.keys() or 'prkey' not in session.keys():
+        session.clear()
+        return redirect("/login")
+    else:
+        if request.method == "GET":
+            read = []; unread = []
+            for message in get_user_messages(session['username'], session['prkey']):
+                if message[1]:
+                    read.append(message)
+                else:
+                    unread.append(message)
+
+            return render_template("messages.html", username=session['username'], unread=unread, read=read)
+
+
+
+@app.route("/logout", methods=["POST"])
+def logoutUser():
+    session.clear()
+    flash("Logged out successfully!", category="success")
+    return redirect("/")
+
