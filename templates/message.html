@@ -1,0 +1,62 @@
+<!doctype html>
+<title>Your messages</title>
+
+<head>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+
+</head>
+<body>
+
+<div class="naviPanelDiv"> 
+    <div class="naviPanelTitleDiv">
+        <span>
+            <h1><a href="/">Oblivious Directional Addressing System</a> - Message details</h1>
+            <h2>Here are the details of your selected message:</h2>
+        </span>
+    </div>
+    <div class="logoutDiv">
+        <span>
+            Logged in as: {{ session['username'] }} 
+            <form action={{url_for('logoutUser')}} method="post">
+                <input type="submit" name="logout" value="Logout">   
+            </form>
+        </span>
+    </div>
+</div>
+
+<a href="/messages">Go back</a>
+
+<br>
+
+<div class="msgMainDiv">
+    <span>
+        <h2 class="msgMessageTitle"> Title: {{session['chosen_message'][1]}} </h2>
+    </span> 
+    <span>
+        <h3 class="msgMessageSender"> From: {{session['chosen_message'][2]}} </h3>
+    </span>
+    <div class="msgMessage">
+        <span>
+            {{session['chosen_message'][4]}}
+        </span>
+    </div>
+    <!-- {% if session['chosen_message'][5] is not none %}
+        <div class="msgAttachmentDiv">
+            <form action={{url_for('download_attachment')}} method="post">
+                <input type="submit" value="Download attachment - {{session['chosen_message'][5]}}">
+            </form>
+        </div>
+    {% endif %} -->
+    {% if session['chosen_message'][5] is not none %}
+        <div class="msgAttachmentDiv">
+            Download attachment -  <a href='/download_attachments'> {{session['chosen_message'][5]}}</a>
+        </div>
+    {% endif %}
+</div>
+
+<br>
+
+
+
+</body>

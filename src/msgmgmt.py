@@ -13,9 +13,9 @@ from src.attachments import transform_attachment, get_attachment
 
 from src.CustomExceptions import UserNotFounException
 
-def prepare_message(message:str, attachments:FileStorage=None):
+def prepare_message(title:str, message:str, attachments:FileStorage=None):
     head = 0
-    bmsg = b64encode(message.encode())
+    bmsg = b64encode(b64encode(title.encode()) + b')' + message.encode())
     if attachments != None and attachments.filename != "":
         head = (head+1)
         attach = transform_attachment(attachments)
@@ -25,7 +25,7 @@ def prepare_message(message:str, attachments:FileStorage=None):
     return head.to_bytes(), bmsg
     
 
-def send_message(sender:str, reciever:str, prkey:bytes, message:str, attachments:FileStorage=None):
+def send_message(title:str, sender:str, reciever:str, prkey:bytes, message:str, attachments:FileStorage=None):
     
     db, sql = connect_to_db()
 
@@ -42,7 +42,7 @@ def send_message(sender:str, reciever:str, prkey:bytes, message:str, attachments
     sender_keypair = RSA.import_key(prkey)
     reciever_keypair = RSA.import_key(pubkey)
 
-    (head, msg) = prepare_message(message, attachments)
+    (head, msg) = prepare_message(title, message, attachments)
     aeskey = get_random_bytes(32)
     iv = get_random_bytes(16)
 
@@ -67,7 +67,7 @@ def send_message(sender:str, reciever:str, prkey:bytes, message:str, attachments
     return 0
 
 
-def decrypt_message(msg_id:int, prkey:bytes):
+def decrypt_message(msg_id:int, prkey:bytes, set_as_read:bool=False):
 
     db, sql = connect_to_db()
     
@@ -83,6 +83,7 @@ def decrypt_message(msg_id:int, prkey:bytes):
     if len(message_all) == 0:
         return 0
 
+    msg_id = message_all[0]
     sender = message_all[1]
     enc_msg_rsa = message_all[4]
     enc_msg_aes = message_all[3]
@@ -109,7 +110,7 @@ def decrypt_message(msg_id:int, prkey:bytes):
     attach_check = head&16
 
     # seeing as "read"
-    if not read_check:
+    if not read_check and set_as_read:
         head |= 32
         try:
             reencrypter = AES.new(u_aes, mode=AES.MODE_CBC, iv=u_iv)
@@ -128,11 +129,11 @@ def decrypt_message(msg_id:int, prkey:bytes):
         ret_attach_fname = None
         ret_attach = None
 
-    ret_msg = b64decode(message).decode()
+    (title, ret_msg) = b64decode(message).split(b')')
 
     db.close()
 
-    return sender, read_check, ret_msg, ret_attach_fname, ret_attach
+    return msg_id, b64decode(title).decode(), sender, read_check, ret_msg.decode(), ret_attach_fname, ret_attach
 
 
 def get_user_msg_ids(username:str):
@@ -149,6 +150,44 @@ def get_user_msg_ids(username:str):
 def get_user_messages(username:str, prkey:bytes):
     msg_ids = get_user_msg_ids(username)
 
-    ret_messages = [decrypt_message(idd, prkey) for idd in msg_ids]
+    ret_messages = [decrypt_message(idd, prkey)[:4] for idd in msg_ids]
+    # print(len(ret_messages))
 
     return ret_messages
+
+
+def get_user_message_id(prkey:bytes, msg_id:int):
+    return decrypt_message(msg_id, prkey, set_as_read=True)
+
+
+def check_message_recipient(username:str, msg_id:int):
+    db, sql = connect_to_db()
+    
+    try:
+        recipient_all = sql.execute("SELECT sendee FROM messages WHERE msgid = (?)", (msg_id,)).fetchall()
+    except:
+        print("write this excption")
+        return False
+
+    db.close()
+
+    if len(recipient_all) == 0:
+        return False
+    else:
+        return recipient_all[0][0] == username 
+    
+
+def delete_message(msg_id:int):
+    db, sql = connect_to_db()
+    try:
+        sql.execute("DELETE FROM messages WHERE msgid = (?)", (msg_id,))
+        db.commit()
+    
+    except:
+        print("write this exception 2")
+        return False
+    
+    db.close()
+    return True
+
+# TODO - get message details

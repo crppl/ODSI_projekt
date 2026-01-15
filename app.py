@@ -14,7 +14,10 @@ from src.CustomExceptions import (
 )
 from src.msgmgmt import (
     send_message,
-    get_user_messages
+    get_user_messages,
+    check_message_recipient,
+    delete_message,
+    get_user_message_id
 )
 
 from Cryptodome.PublicKey import RSA
@@ -174,6 +177,13 @@ def loginUser():
         return redirect("/")
 
 
+@app.route("/logout", methods=["POST"])
+def logoutUser():
+    session.clear()
+    flash("Logged out successfully!", category="success")
+    return redirect("/")
+
+
 @app.route("/register", methods=["GET", "POST"])
 def registerUser():
     if request.method == "POST":
@@ -233,17 +243,17 @@ def sendMessageApp():
         if request.method == "GET":
             return render_template("send_message.html", recipients=get_users())
         elif request.method == "POST":
+            session['title'] = request.form.get("message_title", "unknown")
             session['message'] = request.form.get("message", "")
             session['reciever'] = request.form.get("recSelect", "unknown")
             session['attached_file'] = request.files["send_attachment"]
-            print(session['attached_file'], "/", session['attached_file'].filename, "|")
             if session['attached_file'].filename != "" and not validate_filename(session['attached_file'].filename):
                 session.pop('attached_file')
                 flash("Unsupported file name/extension!", category="send_error")
                 return redirect(request.url)
             elif session['message'] != "" and session['reciever'] != "unknown":
                 try:
-                    send_message(session['username'], session.pop('reciever'), session['prkey'], session.pop('message'), attachments=session.pop('attached_file'))
+                    send_message(session['title'], session['username'], session.pop('reciever'), session['prkey'], session.pop('message'), attachments=session.pop('attached_file'))
                 except Exception as e:
                     print("EXCEPTION!!!!", e)
                     flash('There was an unexpected error. Message not sent.', category="send_error")
@@ -251,7 +261,7 @@ def sendMessageApp():
                 flash("Message sent!", category="send_success")
                 return redirect("/")
             else:
-                flash("", category="error")
+                flash("Some error happened", category="error")
                 return redirect(request.url)
 
 
@@ -265,32 +275,74 @@ def listMessages():
         return redirect("/login")
     else:
         if request.method == "GET":
-            read = []; unread = []
-            for message in get_user_messages(session['username'], session['prkey']):
-                if message[1]:
-                    read.append(message)
-                else:
-                    unread.append(message)
-            session['read_msgs'] = read; session['unread_msgs'] = unread
+            if "read_msgs" not in session.keys() or "unread_msgs" not in session.keys():
+                refresh_user_messages()
             return render_template("messages.html")
 
 
+def refresh_user_messages():
+    read = []; unread = []
+    for message in get_user_messages(session['username'], session['prkey']):
+        if message[3]:
+            read.append(message)
+        else:
+            unread.append(message)
+    session['read_msgs'] = read; session['unread_msgs'] = unread
 
-@app.route("/logout", methods=["POST"])
-def logoutUser():
-    session.clear()
-    flash("Logged out successfully!", category="success")
-    return redirect("/")
+
+@app.route("/manage_msg", methods=["POST"])
+def delete_message_app():
+    if 'username' not in session.keys() or 'prkey' not in session.keys():
+        return redirect("/logout")
+    else:
+        session["msge_id"] = request.form.get("msg_id", "unknown")
+        session["msg_action"] = request.form.get("msgAction", "unknown")
+        if session["msg_action"] == "unknown":
+            return redirect("/messages")
+        elif session["msg_action"] == "Details":
+            if check_message_recipient(session['username'], session['msge_id']):
+                try:
+                    session['chosen_message'] = get_user_message_id(session['prkey'], session['msge_id'])
+                except:
+                    return redirect("/not_your_message")
+                refresh_user_messages()
+                return redirect("/message_details")
+            else:
+                return redirect("/not_your_message")
+        elif session["msg_action"] == "Delete":
+            if check_message_recipient(session['username'], session['msge_id']):
+                delete_message(session['msge_id'])
+                refresh_user_messages()
+                flash('Message deleted succesfully.', category="delete_success")
+                return redirect("/messages")
 
 
-@app.route("/download_attachments", methods=["POST"])
+@app.route("/message_details", methods=["GET", "POST"])
+def ListSpecificMessage():
+    if 'username' not in session.keys() or 'prkey' not in session.keys(): 
+        return redirect("/logout")
+    elif check_message_recipient(session['username'], session['chosen_message'][0]):
+        return render_template("message.html")
+    else:
+        return render_template("not_your_message.html")
+
+
+@app.route("/not_your_message", methods=["GET"])
+def func_not_your_message():
+    if 'username' not in session.keys() or 'prkey' not in session.keys(): 
+        return redirect("/logout")
+    else:
+        return render_template("not_your_message.html")
+
+
+
+@app.route("/download_attachments", methods=["GET"])
 def download_attachment():
     if 'username' not in session.keys() or 'prkey' not in session.keys():
         session.clear()
         return redirect("/login")
     else:
-        session['filename'] = request.form.get("filename", "unknown")
-        session['filestream'] = request.form.get("filestream", "unknown")
-        if session['filename'] is None or session['filename'] == "unknown" or session['filestream'] == "unknown":
+        if session['chosen_message'][5] is None or session['chosen_message'][5] == "":
             return redirect(request.url)
-        return send_file(BytesIO(b64decode(session['filestream'])), download_name=session.pop('filename'), as_attachment=True)
+        return send_file(BytesIO(b64decode(session['chosen_message'][6])), download_name=session['chosen_message'][5], as_attachment=True)
+    

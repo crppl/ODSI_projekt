@@ -11,7 +11,7 @@
 <div class="naviPanelDiv"> 
     <div class="naviPanelTitleDiv">
         <span>
-            <h1>Oblivious Directional Addressing System - Messages</h1>
+            <h1><a href="/">Oblivious Directional Addressing System</a> - Messages</h1>
             <h2>Hello {{session['username']}}, here are your messages:</h2>
         </span>
     </div>
@@ -27,6 +27,13 @@
 
 <br>
 
+{% for category, message in get_flashed_messages(with_categories=true) %}
+    {% if category == "delete_success" %}
+        <div class="flash {{ category }}" style="color:lime">{{message}}</div> 
+    {% endif %}
+{% endfor %}
+
+
 <div class="msgsMainDiv">
     <div class="msgsUnreadDiv">
         <span>
@@ -34,37 +41,29 @@
         </span>
         {% for message in session['unread_msgs'] %}
             <div class="msgsUnreadMsgDiv">
-                from: {{message[0]}} <br>
-                message: {{message[2]}}
-                {% if message[3] is not none %}
-                    <div class="msgAttachmentDiv">
-                        <form action={{url_for('download_attachment')}} method="post">
-                            <input type="hidden" name="filename" value="{{message[3]}}">
-                            <input type="hidden" name="filestream" value="{{message[4]}}">
-                            <input type="submit" value="Download attachment">
-                        </form>
-                    </div>
-                {% endif %}
+                <form class="msgsFormDeleteMsg" name="deleteMessage" action={{url_for('delete_message_app')}} method="post">
+                    <input type="hidden" name="msg_id" value="{{message[0]}}">
+                    <input class="msgsMsgActionDel" type="submit" name="msgAction" value="Delete">
+                    <input class="msgsMsgActionDet" type="submit" name="msgAction" value="Details">
+                </form>
+                <span>from: {{message[2]}}</span> <br>
+                <span>title: {{message[1]}}</span>
             </div>
         {% endfor %}
     </div>
     <div class="msgsReadDiv">
         <span>
-            <h2 class="msgsUnread"> Read messages: </h2>
+            <h2 class="msgsRead"> Read messages: </h2>
         </span>
         {% for message in session['read_msgs'] %}
             <div class="msgsReadMsgDiv">
-                from: {{message[0]}} <br>
-                message: {{message[2]}}
-                {% if message[3] is not none %}
-                    <div class="msgAttachmentDiv">
-                        <form action={{url_for('download_attachment')}} method="post">
-                            <input type="hidden" name="filename" value="{{message[3]}}">
-                            <input type="hidden" name="filestream" value="{{message[4]}}">
-                            <input type="submit" value="Download attachment">
-                        </form>
-                    </div>
-                {% endif %}
+                <form class="msgsFormDeleteMsg" name="deleteMessage" action={{url_for('delete_message_app')}} method="post">
+                    <input type="hidden" name="msg_id" value="{{message[0]}}">
+                    <input class="msgsMsgActionDel" type="submit" name="msgAction" value="Delete">
+                    <input class="msgsMsgActionDet" type="submit" name="msgAction" value="Details">
+                </form>
+                <span>from: {{message[2]}} </span> <br>
+                <span>title: {{message[1]}} </span>
             </div>
         {% endfor %}
     </div>
