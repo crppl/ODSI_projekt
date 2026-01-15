@@ -1,19 +1,26 @@
 from werkzeug.datastructures.file_storage import FileStorage
 from base64 import b64encode, b64decode
 from Cryptodome.Cipher import AES 
-import sqlite3
-import os
+from io import BytesIO 
+from werkzeug.utils import secure_filename
+from src.CustomExceptions import InvalidFilenameException
 
 PEPPER = b'G81ksfnal0192030'
 
 ALLOWED_EXTENSIONS = {"txt", "pdf", "png", "jpg", "jpeg"}
-def validate_filename(filename):
+def validate_filename(filename:str):
     return '.' in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def add_attachment(file:FileStorage, username):
-    print(os.getcwd())
-    sql = sqlite3.connect("test.db").cursor()
-    sql.execute("SELECT password FROM USERS WHERE username = ?", [username])
-    sale, hashe = sql.fetchall()[0][0].split("|")
-    cipher = AES.new(PEPPER + hashe[::-1].encode("utf-8"), AES.MODE_GCM)
-    return cipher.encrypt(file.read())
+def transform_attachment(attach:FileStorage):
+    fname = attach.filename
+    if not validate_filename(fname):
+        raise InvalidFilenameException("Invalid filename found!")
+    else:
+        sec_fname =  secure_filename(fname)
+        return b64encode(sec_fname.encode() + b"|" + attach.read())
+
+def get_attachment(attachment:bytes):
+    b64dattach = b64decode(attachment)
+    # print(b64dattach, type(b64dattach))
+    (fname, fle) = b64dattach.split(b"|", 1)
+    return fname.decode(), b64encode(fle).decode('ascii')

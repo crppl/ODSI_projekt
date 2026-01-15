@@ -1,3 +1,5 @@
+
+/* navi panel */
 .naviPanelDiv {
     min-width: 100%;
     min-height: 80px;
@@ -17,12 +19,63 @@
 }
 
 
-.keygenDiv {
-    float: left;
-    color: purple;
-    min-width: 100%;
-    margin: 20px;
+/* main page */
+
+.mainSendMessageDiv {
+    display:inline-flex;
+    float:left;
+    background-color: #25d729;
+    color: #000000;
+    margin:5px;
+    padding: 20px;
 }
+
+.mainReadMessagesDiv {
+    display:inline-flex;
+    float:left;
+    background-color: #fb33ea;
+    color: #000000;
+    margin:5px;
+    padding: 20px;
+}
+
+.mainKeygenDiv {
+    float: left;
+    background-color: #a05403;
+    color: purple;
+    /* min-width: 100%; */
+    margin: 5px;
+    padding:20px;
+}
+
+
+/* messages */
+.msgsUnread {
+    color:#9f40ff
+}
+
+.msgsUnreadMsgDiv {
+    background: #e5a80b;
+    max-width: 750px;
+    padding: 1px;
+    margin:2px;
+    border-style:solid;
+    border-width: 1px;
+    border-color: rgba(26,26,26,0.5)
+}
+
+.msgsReadMsgDiv {
+    background: #e5a80b;
+    max-width: 750px;
+    padding: 1px;
+    margin: 2px;
+    border-style:solid;
+    border-width:1px;
+    border-color: rgba(26,26,26,0.5)
+}
+
+
+/* miscellaneous */
 .fileinputDiv {
     float: left;
     color: darkred;
@@ -36,7 +89,4 @@
     border-color:black;
     background-color: darkgrey;
     width:fit-content;
-}
-.msgsUnread {
-    color:#9f40ff
 }

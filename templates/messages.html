@@ -11,13 +11,13 @@
 <div class="naviPanelDiv"> 
     <div class="naviPanelTitleDiv">
         <span>
-            <h1>Obvious Directional Addressing System - Messages</h1>
-            <h2>Hello {{username}}, here are your messages:</h2>
+            <h1>Oblivious Directional Addressing System - Messages</h1>
+            <h2>Hello {{session['username']}}, here are your messages:</h2>
         </span>
     </div>
     <div class="logoutDiv">
         <span>
-            Logged in as: {{ username }} 
+            Logged in as: {{ session['username'] }} 
             <form action={{url_for('logoutUser')}} method="post">
                 <input type="submit" name="logout" value="Logout">   
             </form>
@@ -32,10 +32,19 @@
         <span>
             <h2 class="msgsUnread"> Unread messages: </h2>
         </span>
-        {% for message in unread %}
-            <div class="msgsUnreadMsg">
-                from: {{message[0]}}
+        {% for message in session['unread_msgs'] %}
+            <div class="msgsUnreadMsgDiv">
+                from: {{message[0]}} <br>
                 message: {{message[2]}}
+                {% if message[3] is not none %}
+                    <div class="msgAttachmentDiv">
+                        <form action={{url_for('download_attachment')}} method="post">
+                            <input type="hidden" name="filename" value="{{message[3]}}">
+                            <input type="hidden" name="filestream" value="{{message[4]}}">
+                            <input type="submit" value="Download attachment">
+                        </form>
+                    </div>
+                {% endif %}
             </div>
         {% endfor %}
     </div>
@@ -43,10 +52,19 @@
         <span>
             <h2 class="msgsUnread"> Read messages: </h2>
         </span>
-        {% for message in read %}
-            <div class="msgsUnreadMsg">
-                from: {{message[0]}}
+        {% for message in session['read_msgs'] %}
+            <div class="msgsReadMsgDiv">
+                from: {{message[0]}} <br>
                 message: {{message[2]}}
+                {% if message[3] is not none %}
+                    <div class="msgAttachmentDiv">
+                        <form action={{url_for('download_attachment')}} method="post">
+                            <input type="hidden" name="filename" value="{{message[3]}}">
+                            <input type="hidden" name="filestream" value="{{message[4]}}">
+                            <input type="submit" value="Download attachment">
+                        </form>
+                    </div>
+                {% endif %}
             </div>
         {% endfor %}
     </div>

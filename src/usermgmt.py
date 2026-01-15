@@ -4,7 +4,7 @@ import passlib.hash as plh
 import sqlite3
 
 
-from src.UserExceptions import (
+from src.CustomExceptions import (
     PasswordLengthException,
     PasswordIllegalCharException,
     PasswordCommonException,

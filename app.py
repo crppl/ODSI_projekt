@@ -1,11 +1,11 @@
-from src.attachments import validate_filename, ALLOWED_EXTENSIONS, add_attachment
+from src.attachments import validate_filename, ALLOWED_EXTENSIONS
 from src.usermgmt import (
     write_user,
     check_username_taken,
     login_user,
     get_users
 )
-from src.UserExceptions import (
+from src.CustomExceptions import (
     PasswordLengthException, 
     PasswordCommonException, 
     PasswordIllegalCharException, 
@@ -21,7 +21,7 @@ from Cryptodome.PublicKey import RSA
 
 import sqlite3
 # import os
-# from io import BytesIO
+from io import BytesIO
 
 from flask import (
     Flask, 
@@ -34,7 +34,9 @@ from flask import (
     send_file,
     session
 )
-from werkzeug.utils import secure_filename
+from base64 import b64decode
+
+from werkzeug.wsgi import wrap_file
 from flask_limiter import Limiter, Limit
 from flask_limiter.util import get_remote_address
 from flask_session import Session
@@ -68,6 +70,7 @@ limiter = Limiter(
 )
 
 Session(app)
+
 
 # !! For resetting users
 # sql = sqlite3.connect("test.db")
@@ -105,7 +108,6 @@ Session(app)
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
-    # print(session.keys())
     if 'username' not in session.keys():
         return redirect("/login")
     else:
@@ -113,25 +115,32 @@ def upload_file():
             if request.form.get("keygen", "unknown") != "unknown":
                 flash("New key pair has been generated and updated!", category="success")
                 return redirect("/")
-
+        elif request.method == "GET":
+            return render_template("main.html")
             # check if the post request has the file part
-            if 'file' not in request.files:
-                flash('No file')
-                return redirect(request.url)
-            file = request.files['file']
-            # print(type(file))
-            # If the user does not select a file, the browser submits an
-            # empty file without a filename.
-            if file.filename == '':
-                flash('No selected file')
-                return redirect(request.url)
-            if file and validate_filename(file.filename):
-                filename = secure_filename(file.filename)
-                # print(file.stream.read())
-                # print(add_attachment(file, "admin"))
-                # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                return redirect(url_for('upload_file', name=filename))
-        return render_template("main.html", username=session['username'])#, userkey=userKeypair.export_key().decode())
+            # if 'file' not in request.files:
+            #     flash('No file')
+            #     return redirect(request.url)
+            # fileg = request.files['file']
+            # # print(type(file))
+            # # If the user does not select a file, the browser submits an
+            # # empty file without a filename.
+            # if fileg.filename == '':
+            #     flash('No selected file')
+            #     return redirect(request.url)
+            # if fileg and validate_filename(fileg.filename):
+            #     filename = secure_filename(fileg.filename)
+            #     print(filename, type(filename))
+            #     retvals = fileg.stream.read()
+            #     print(retvals)
+            #     retfiole = BytesIO(retvals)
+            #     print(type(retfiole))
+            #     # print(file.stream.read())
+            #     # print(add_attachment(file, "admin"))
+            #     # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            #     return send_file(retfiole, download_name=filename, as_attachment=True)
+            #     return redirect(url_for('upload_file', name=filename))
+
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -151,7 +160,6 @@ def loginUser():
                     (login_success, pk_blob) = login_user(uname, passw)
                     if login_success:
                         session['username'] = uname
-                        # print(pk_blob)
                         session['prkey'] = pk_blob
                         return redirect("/")
                     else:
@@ -213,26 +221,41 @@ def registerUser():
     return render_template("register.html")
 
 
+
+
 @app.route("/send", methods=["GET", "POST"])
 @limiter.limit("10 per 1 minute", methods=["POST"])
-def sendMessage():
+def sendMessageApp():
     if 'username' not in session.keys() or 'prkey' not in session.keys():
         session.clear()
         return redirect("/login")
-
     else:
-        message = request.form.get("message", "")
         if request.method == "GET":
-            return render_template("send_message.html", recipients=get_users(), message=message)
+            return render_template("send_message.html", recipients=get_users())
         elif request.method == "POST":
-            reciever = request.form.get("recSelect", "unknown")
-            if message != "" and reciever != "unknown":
-                send_message(session['username'], reciever, session['prkey'], message)
+            session['message'] = request.form.get("message", "")
+            session['reciever'] = request.form.get("recSelect", "unknown")
+            session['attached_file'] = request.files["send_attachment"]
+            print(session['attached_file'], "/", session['attached_file'].filename, "|")
+            if session['attached_file'].filename != "" and not validate_filename(session['attached_file'].filename):
+                session.pop('attached_file')
+                flash("Unsupported file name/extension!", category="send_error")
+                return redirect(request.url)
+            elif session['message'] != "" and session['reciever'] != "unknown":
+                try:
+                    send_message(session['username'], session.pop('reciever'), session['prkey'], session.pop('message'), attachments=session.pop('attached_file'))
+                except Exception as e:
+                    print("EXCEPTION!!!!", e)
+                    flash('There was an unexpected error. Message not sent.', category="send_error")
+                    return redirect("/")
                 flash("Message sent!", category="send_success")
                 return redirect("/")
             else:
                 flash("", category="error")
                 return redirect(request.url)
+
+
+
 
 @app.route("/messages", methods=["GET"])
 @limiter.limit("10 per 1 minute", methods=["POST"])
@@ -248,8 +271,8 @@ def listMessages():
                     read.append(message)
                 else:
                     unread.append(message)
-
-            return render_template("messages.html", username=session['username'], unread=unread, read=read)
+            session['read_msgs'] = read; session['unread_msgs'] = unread
+            return render_template("messages.html")
 
 
 
@@ -259,3 +282,15 @@ def logoutUser():
     flash("Logged out successfully!", category="success")
     return redirect("/")
 
+
+@app.route("/download_attachments", methods=["POST"])
+def download_attachment():
+    if 'username' not in session.keys() or 'prkey' not in session.keys():
+        session.clear()
+        return redirect("/login")
+    else:
+        session['filename'] = request.form.get("filename", "unknown")
+        session['filestream'] = request.form.get("filestream", "unknown")
+        if session['filename'] is None or session['filename'] == "unknown" or session['filestream'] == "unknown":
+            return redirect(request.url)
+        return send_file(BytesIO(b64decode(session['filestream'])), download_name=session.pop('filename'), as_attachment=True)

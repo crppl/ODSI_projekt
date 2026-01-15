@@ -2,49 +2,6 @@
 <title>Main page</title>
 
 <head>
-<!-- <style>
-    /* Navigation panel */
-    .naviPanelDiv {
-        min-width: 100%;
-        min-height: 80px;
-    }
-    .naviPanelTitleDiv {
-        display: inline-flex;
-        float:center;
-        text-align:center;
-        align-self: center;
-        /* max-width:75% */
-    }
-    .logoutDiv {
-        display:inline-flex;
-        float: right;
-        align-self: top;
-        text-align: right;
-    }
-
-
-    .keygenDiv {
-        float: left;
-        color: purple;
-        min-width: 100%;
-        margin: 20px;
-    }
-    .fileinputDiv {
-        float: left;
-        color: darkred;
-        min-width: 100%;
-        margin: 20px;
-    }
-    .fileInputForm {
-        border-style: solid;
-        border-radius: 5px;
-        border-width: 2px;
-        border-color:black;
-        background-color: darkgrey;
-        width:fit-content;
-    }
-    
-</style> -->
 
 <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 
@@ -54,14 +11,13 @@
 <div class="naviPanelDiv"> 
     <div class="naviPanelTitleDiv">
         <span>
-            <h1 style="color:red"> REMEMBER TO UNCOMMENT LOGIN CHECK!!! </h1>
-            <h1>Obvious Directional Addressing System - Welcome! </h1>
-            <h2>Hello {{username}}, what would you like to do today?</h2>
+            <h1>Oblivious Directional Addressing System - Welcome! </h1>
+            <h2>Hello {{session['username']}}, what would you like to do today?</h2>
         </span>
     </div>
     <div class="logoutDiv">
         <span>
-            Logged in as: {{ username }} 
+            Logged in as: {{ session['username'] }} 
             <form action={{url_for('logoutUser')}} method="post">
                 <input type="submit" name="logout" value="Logout">   
             </form>
@@ -75,15 +31,34 @@
     {% endif %}
 {% endfor %}
 
-<div class="keygenDiv">
+
+<div class="mainSendMessageDiv">
     <span>
-         <h1> Generate a new key pair </h1> <form method="post" enctype="multipart/form-data">
-            <input type="submit" name="keygen" value="Generate">   
-        </form>
+        <h1>
+            <a href="/send">Send a message!</a>
+        </h1>
     </span>
 </div>
 
-<div class="fileinputDiv">
+<div class="mainReadMessagesDiv">
+    <span>
+        <h1>
+            <a href="/messages">Your inbox!</a>
+        </h1>
+    </span>
+</div>
+
+<div class="mainKeygenDiv">
+    <span>
+         <h1> Generate a new key pair <form method="post" enctype="multipart/form-data">
+            <input type="submit" name="keygen" value="Generate">   
+        </form>
+    </h1> 
+    </span>
+</div>
+
+
+<!-- <div class="fileinputDiv">
     <span>
         Input attachment
         <form class="fileInputForm" method=post enctype=multipart/form-data>
@@ -91,13 +66,10 @@
             <input type=submit value=Upload>
         </form>
     </span>
-</div>
+</div> -->
 <br>
 
 <br>
-
-{{userkey}}
-
 
 
 </body>
