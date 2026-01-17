@@ -74,7 +74,11 @@ def write_user(username:str, password:str):
 
     rsa_keypair = generate_keypair()
 
-    keysalt = generate_salt()
+    keysalt = generate_salt() 
+
+    #just in case
+    while salt == keysalt:
+        keysalt = generate_salt()
 
     priv_key = encrypt_privkey(salt=keysalt, keypair=rsa_keypair, password=password)
     

@@ -28,6 +28,7 @@ from flask_limiter import Limiter, Limit
 from flask_limiter.util import get_remote_address
 from flask_session import Session
 import bleach
+import time
 
 from flask import (
     Flask, 
@@ -71,7 +72,7 @@ limiter = Limiter(
 Session(app)
 
 # import sqlite3
-# !! For resetting users
+# # !! For resetting users
 # sql = sqlite3.connect("test.db")
 # db = sql.cursor()
 # db.execute("DROP TABLE IF EXISTS USERS;")
@@ -84,7 +85,7 @@ Session(app)
 # db.close()
 # sql.close()
 
-# !! For resetting messages
+# # !! For resetting messages
 # sql = sqlite3.connect("test.db")
 # db = sql.cursor()
 # db.execute("DROP TABLE IF EXISTS MESSAGES;")
@@ -136,31 +137,45 @@ def upload_file():
 @app.route("/login", methods=["GET", "POST"])
 def loginUser():
     if 'username' not in session.keys():
-        if request.form.get("register") != None:
+        if request.form.get("register", "unknown") != "unknown":
             return redirect("/register")
         else:
             if request.method == "POST":
+                begin = time.time()
                 uname = bleach.clean(request.form.get("unam"))
                 passw = bleach.clean(request.form.get("pass"))
                 try:
                     if not check_username_taken(uname):
                         flash('Username not found!', category="error")
+                        elapsed = time.time() - begin
+                        if elapsed < 3:
+                            time.sleep(3-elapsed)
                         return redirect(request.url)
                 except UsernameTakenException:
                     (login_success, pk_blob) = login_user(uname, passw)
                     if login_success:
                         session['username'] = uname
                         session['prkey'] = pk_blob
+                        elapsed = time.time() - begin
+                        if elapsed < 3:
+                            time.sleep(3-elapsed)
                         return redirect("/")
                     else:
+                        elapsed = time.time() - begin
+                        if elapsed < 3:
+                            time.sleep(3-elapsed)
                         flash('Incorrect credentials!', category="error")
                         return redirect(request.url)
                 except:
+                    elapsed = time.time() - begin
+                    if elapsed < 4:
+                        time.sleep(4-elapsed)
                     flash('Unknown exception occured!', category="error")
                     return redirect(request.url)
             elif request.method == "GET":
                 return render_template("login.html")
     else:
+        time.sleep(1)
         return redirect("/")
 
 
@@ -174,6 +189,7 @@ def logoutUser():
 @app.route("/register", methods=["GET", "POST"])
 def registerUser():
     if request.method == "POST":
+        begin = time.time()
         ret:int
         session['unam'] = bleach.clean(request.form.get("unam", "unknown"))
         session['passw'] = bleach.clean(request.form.get("pass", "unknown"))
@@ -188,9 +204,15 @@ def registerUser():
             ret = write_user(session['unam'], session['passw'])
         except PasswordLengthException:
             flash('Password must be at least 12 characters long!', category="error")
+            elapsed = time.time() - begin
+            if elapsed < 3:
+                time.sleep(3-elapsed)
             return redirect(request.url)
         except PasswordIllegalCharException:
             flash('Password contains illegal characters!', category="error")
+            elapsed = time.time() - begin
+            if elapsed < 3:
+                time.sleep(3-elapsed)
             return redirect(request.url)
         except PasswordLackingCharsException as e:
             text = '''Password must contain: 
@@ -199,20 +221,34 @@ def registerUser():
                 text +=  i + ", "
             text = text[:-2] + "."
             flash(text, category="error")
+            elapsed = time.time() - begin
+            if elapsed < 3:
+                time.sleep(3-elapsed)
             return redirect(request.url)
         except PasswordCommonException:
             flash('Password is too common!', category="error")
+            elapsed = time.time() - begin
+            if elapsed < 3:
+                time.sleep(3-elapsed)
             return redirect(request.url)
         except UsernameTakenException:
             flash('Provided username is already taken!', category="error")
+            elapsed = time.time() - begin
+            if elapsed < 3:
+                time.sleep(3-elapsed)
             return redirect(request.url)
-    
         if ret == 0:
+            elapsed = time.time() - begin
+            if elapsed < 3:
+                time.sleep(3-elapsed)
             flash('User registered correctly! Please log in.', category="success")
             return redirect("/login")
         
         else:
             flash('Unknown error occured.', category="error")
+            elapsed = time.time() - begin
+            if elapsed < 3:
+                time.sleep(3-elapsed)
             return redirect("/login")
         
     return render_template("register.html")
