@@ -43,9 +43,9 @@
             <div class="msgsUnreadMsgDiv">
                 <form class="msgsFormDeleteMsg" name="deleteMessage" action={{url_for('delete_message_app')}} method="post">
                     <input type="hidden" name="msg_id" value="{{message[0]}}">
-                    <input class="msgsMsgActionRead" type="submit" name="msgAction" value="MARead">
                     <input class="msgsMsgActionDel" type="submit" name="msgAction" value="Delete">
                     <input class="msgsMsgActionDet" type="submit" name="msgAction" value="Details">
+                    <input class="msgsMsgActionRead" type="submit" name="msgAction" value="Mark As Read">
                 </form>
                 <span>from: {{message[4]}}, date: {{message[3]}}</span> <br>
                 <span>title: {{message[2]}}</span>

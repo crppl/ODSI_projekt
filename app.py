@@ -265,13 +265,16 @@ def sendMessageApp():
         if request.method == "GET":
             return render_template("send_message.html", recipients=get_users())
         elif request.method == "POST":
+            begin = time.time()
             session['title'] = bleach.clean(request.form.get("message_title", "unknown"))
             session['message'] = bleach.clean(request.form.get("message", ""))
             session['reciever'] = bleach.clean(request.form.get("recSelect", "unknown"))
             session['attached_file'] = request.files["send_attachment"]
-            print(session['title'], session['message'])
             if session['attached_file'].filename != "" and not validate_filename(session['attached_file'].filename):
                 session.pop('attached_file')
+                elapsed = time.time() - begin
+                if elapsed < 1.2:
+                    time.sleep(1.2 - elapsed)
                 flash("Unsupported file name/extension!", category="send_error")
                 return redirect(request.url)
             elif session['message'] != "" and session['reciever'] != "unknown":
@@ -279,12 +282,21 @@ def sendMessageApp():
                     send_message(session['title'], session['username'], session.pop('reciever'), session['prkey'], session.pop('message'), attachments=session.pop('attached_file'))
                 except Exception as e:
                     print("EXCEPTION!!!!", e)
+                    elapsed = time.time() - begin
+                    if elapsed < 1.2:
+                        time.sleep(1.2 - elapsed)
                     flash('There was an unexpected error. Message not sent.', category="send_error")
                     return redirect("/")
                 flash("Message sent!", category="send_success")
+                elapsed = time.time() - begin
+                if elapsed < 1.2:
+                    time.sleep(1.2 - elapsed)
                 return redirect("/")
             else:
-                flash("Some error happened", category="error")
+                elapsed = time.time() - begin
+                if elapsed < 1.2:
+                    time.sleep(1.2 - elapsed)
+                flash("Unknown error occured", category="error")
                 return redirect(request.url)
 
 
@@ -296,11 +308,15 @@ def listMessages():
     if 'username' not in session.keys() or 'prkey' not in session.keys():
         return redirect("/logout")
     else:
+        begin = time.time()
         if 'chosen_message' in session.keys():
             session.pop('chosen_message')
         if request.method == "GET":
             # if "read_msgs" not in session.keys() or "unread_msgs" not in session.keys():
             refresh_user_messages()
+            elapsed = time.time() - begin
+            if elapsed < 1.2:
+                time.sleep(1.2 - elapsed)
             return render_template("messages.html")
 
 
@@ -331,7 +347,7 @@ def delete_message_app():
                 refresh_user_messages()
                 flash('Message deleted succesfully.', category="delete_success")
                 return redirect("/messages")
-        elif session["msg_action"] == "MARead":
+        elif session["msg_action"] == "Mark As Read":
             if check_message_recipient(session['username'], session['msge_id']):
                 mark_message_as_read(session['msge_id'], session['prkey'])
                 refresh_user_messages()

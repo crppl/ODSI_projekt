@@ -91,6 +91,13 @@
     background-color: #0008a7;
     color:#f3f3f3;
     margin-left:7px;
+    margin-right: 7px;
+}
+
+.msgsMsgActionRead {
+    background-color: #fff100;
+    color:#000000;
+    margin-left:7px;
 }
 
 
