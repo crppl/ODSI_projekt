@@ -17,14 +17,17 @@ from src.msgmgmt import (
     get_user_messages,
     check_message_recipient,
     delete_message,
-    get_user_message_id
+    get_user_message_id,
+    mark_message_as_read
 )
 
 from Cryptodome.PublicKey import RSA
-
-import sqlite3
-# import os
 from io import BytesIO
+from base64 import b64decode
+from flask_limiter import Limiter, Limit
+from flask_limiter.util import get_remote_address
+from flask_session import Session
+import bleach
 
 from flask import (
     Flask, 
@@ -37,13 +40,6 @@ from flask import (
     send_file,
     session
 )
-from base64 import b64decode
-
-from werkzeug.wsgi import wrap_file
-from flask_limiter import Limiter, Limit
-from flask_limiter.util import get_remote_address
-from flask_session import Session
-from redis import Redis
 
 # TODO - make validating username function
 # max 20 chars from a-zA-Z1-9_-
@@ -74,7 +70,7 @@ limiter = Limiter(
 
 Session(app)
 
-
+# import sqlite3
 # !! For resetting users
 # sql = sqlite3.connect("test.db")
 # db = sql.cursor()
@@ -100,18 +96,9 @@ Session(app)
 # sql.close()
 
 
-
-# username = None
-# userKeypair = None
-
-
-# db = sqlite3.connect("test.db").cursor()
-# print(db.execute("SELECT * FROM USERS").fetchall())
-# db.close()
-
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
-    if 'username' not in session.keys():
+    if 'username' not in session.keys() or 'prkey' not in session.keys():
         return redirect("/login")
     else:
         if request.method == 'POST':
@@ -153,8 +140,8 @@ def loginUser():
             return redirect("/register")
         else:
             if request.method == "POST":
-                uname = request.form.get("unam")
-                passw = request.form.get("pass")
+                uname = bleach.clean(request.form.get("unam"))
+                passw = bleach.clean(request.form.get("pass"))
                 try:
                     if not check_username_taken(uname):
                         flash('Username not found!', category="error")
@@ -180,7 +167,7 @@ def loginUser():
 @app.route("/logout", methods=["POST"])
 def logoutUser():
     session.clear()
-    flash("Logged out successfully!", category="success")
+    flash("Logged out!", category="success")
     return redirect("/")
 
 
@@ -188,17 +175,17 @@ def logoutUser():
 def registerUser():
     if request.method == "POST":
         ret:int
-        unam = request.form.get("unam", "unknown")
-        passw = request.form.get("pass", "unknown")
-        if unam is None:
+        session['unam'] = bleach.clean(request.form.get("unam", "unknown"))
+        session['passw'] = bleach.clean(request.form.get("pass", "unknown"))
+        if session['unam'] is None or session['unam'] == "unknown":
             flash('No username sent', category='error')
-        if passw is None:
+        if session['passw'] is None or session['passw'] == "unknown":
             flash('No password sent', category='error')
             return redirect(request.url)
 
         # user writing
         try:
-            ret = write_user(unam, passw)
+            ret = write_user(session['unam'], session['passw'])
         except PasswordLengthException:
             flash('Password must be at least 12 characters long!', category="error")
             return redirect(request.url)
@@ -237,16 +224,16 @@ def registerUser():
 @limiter.limit("10 per 1 minute", methods=["POST"])
 def sendMessageApp():
     if 'username' not in session.keys() or 'prkey' not in session.keys():
-        session.clear()
-        return redirect("/login")
+        return redirect("/logout")
     else:
         if request.method == "GET":
             return render_template("send_message.html", recipients=get_users())
         elif request.method == "POST":
-            session['title'] = request.form.get("message_title", "unknown")
-            session['message'] = request.form.get("message", "")
-            session['reciever'] = request.form.get("recSelect", "unknown")
+            session['title'] = bleach.clean(request.form.get("message_title", "unknown"))
+            session['message'] = bleach.clean(request.form.get("message", ""))
+            session['reciever'] = bleach.clean(request.form.get("recSelect", "unknown"))
             session['attached_file'] = request.files["send_attachment"]
+            print(session['title'], session['message'])
             if session['attached_file'].filename != "" and not validate_filename(session['attached_file'].filename):
                 session.pop('attached_file')
                 flash("Unsupported file name/extension!", category="send_error")
@@ -271,23 +258,15 @@ def sendMessageApp():
 @limiter.limit("10 per 1 minute", methods=["POST"])
 def listMessages():
     if 'username' not in session.keys() or 'prkey' not in session.keys():
-        session.clear()
-        return redirect("/login")
+        return redirect("/logout")
     else:
+        if 'chosen_message' in session.keys():
+            session.pop('chosen_message')
         if request.method == "GET":
-            if "read_msgs" not in session.keys() or "unread_msgs" not in session.keys():
-                refresh_user_messages()
+            # if "read_msgs" not in session.keys() or "unread_msgs" not in session.keys():
+            refresh_user_messages()
             return render_template("messages.html")
 
-
-def refresh_user_messages():
-    read = []; unread = []
-    for message in get_user_messages(session['username'], session['prkey']):
-        if message[3]:
-            read.append(message)
-        else:
-            unread.append(message)
-    session['read_msgs'] = read; session['unread_msgs'] = unread
 
 
 @app.route("/manage_msg", methods=["POST"])
@@ -295,17 +274,18 @@ def delete_message_app():
     if 'username' not in session.keys() or 'prkey' not in session.keys():
         return redirect("/logout")
     else:
-        session["msge_id"] = request.form.get("msg_id", "unknown")
-        session["msg_action"] = request.form.get("msgAction", "unknown")
+        session["msge_id"] = bleach.clean(request.form.get("msg_id", "unknown"))
+        session["msg_action"] = bleach.clean(request.form.get("msgAction", "unknown"))
         if session["msg_action"] == "unknown":
             return redirect("/messages")
         elif session["msg_action"] == "Details":
             if check_message_recipient(session['username'], session['msge_id']):
                 try:
-                    session['chosen_message'] = get_user_message_id(session['prkey'], session['msge_id'])
+                    session['chosen_message'] = get_user_message_id(session['msge_id'], session['prkey'])
+                # flash("WARNING! This message does not match the original signature!\nIt may have been tampered with!", category="invalid_sign")
                 except:
                     return redirect("/not_your_message")
-                refresh_user_messages()
+    
                 return redirect("/message_details")
             else:
                 return redirect("/not_your_message")
@@ -314,6 +294,12 @@ def delete_message_app():
                 delete_message(session['msge_id'])
                 refresh_user_messages()
                 flash('Message deleted succesfully.', category="delete_success")
+                return redirect("/messages")
+        elif session["msg_action"] == "MARead":
+            if check_message_recipient(session['username'], session['msge_id']):
+                mark_message_as_read(session['msge_id'], session['prkey'])
+                refresh_user_messages()
+                flash('Message successfully marked as read.', category="maread_success")
                 return redirect("/messages")
 
 
@@ -339,10 +325,19 @@ def func_not_your_message():
 @app.route("/download_attachments", methods=["GET"])
 def download_attachment():
     if 'username' not in session.keys() or 'prkey' not in session.keys():
-        session.clear()
-        return redirect("/login")
+        return redirect("/logout")
     else:
-        if session['chosen_message'][5] is None or session['chosen_message'][5] == "":
+        if session['chosen_message'][7] is None or session['chosen_message'][7] == "":
             return redirect(request.url)
-        return send_file(BytesIO(b64decode(session['chosen_message'][6])), download_name=session['chosen_message'][5], as_attachment=True)
+        return send_file(BytesIO(b64decode(session['chosen_message'][8])), download_name=session['chosen_message'][7], as_attachment=True)
     
+
+
+def refresh_user_messages():
+    read = []; unread = []
+    for message in get_user_messages(session['username'], session['prkey']):
+        if message[5]:
+            read.append(message)
+        else:
+            unread.append(message)
+    session['read_msgs'] = read; session['unread_msgs'] = unread

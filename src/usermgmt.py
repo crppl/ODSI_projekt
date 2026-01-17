@@ -64,9 +64,7 @@ def validate_password(password:str):
 
 def write_user(username:str, password:str):
     ret:int
-
     ret = validate_password(password)
-
     if check_username_taken(username):
         return
 
@@ -76,20 +74,10 @@ def write_user(username:str, password:str):
 
     rsa_keypair = generate_keypair()
 
-    # print(salt, ghash)
-    
     keysalt = generate_salt()
 
-   
-
     priv_key = encrypt_privkey(salt=keysalt, keypair=rsa_keypair, password=password)
-
-    # print(priv_key, "\n\n")
-    # print(priv_key.decode("unicode_escape"))
-
-    # print(username, salt, ghash, sep="\n")
-        
-
+    
     db, sql = connect_to_db()
 
     try:
@@ -99,14 +87,6 @@ def write_user(username:str, password:str):
     except Exception as e:
         print("User registration - unknown exception occured!\n", e)
         ret = 9
-
-
-    # print("\n\n============= FINAL CHECK - User registration =============")
-
-    # print("ret value:", ret)
-
-    # print("users data:", sql.execute("SELECT * FROM USERS").fetchall())
-
     db.close()
     return ret
 
@@ -116,15 +96,12 @@ def check_username_taken(username):
     try:
         sql.execute("SELECT COUNT(*) FROM users WHERE username = (?)", (username,))
         number = sql.fetchall()[0][0]
-        # print("================", number, "================")
         if number != 0:
             raise UsernameTakenException
     except UsernameTakenException:
         db.close()
         raise UsernameTakenException
     except Exception as e:
-        # print("Uncpecified exception!")
-        # print(e)
         db.close()
         return True
     
@@ -151,7 +128,6 @@ def login_user(username, password):
     ret = sql.fetchall()
     salt, acthash = str(ret[0][1]).split("|")
     enc_key = ret[0][3]
-    # print(salt, acthash, sep="\n")
 
     db.close()
     return check_hash(salt.encode(), acthash, password, enc_key)

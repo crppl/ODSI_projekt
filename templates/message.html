@@ -29,28 +29,26 @@
 
 <br>
 
+{% if session['chosen_message'][1] == False %}
+    <div class="invalid_sign"> WARNING! This message does not match the original signature!<br>It may have been tampered with! </div> 
+{% endif %}
+
+
 <div class="msgMainDiv">
     <span>
-        <h2 class="msgMessageTitle"> Title: {{session['chosen_message'][1]}} </h2>
+        <h2 class="msgMessageTitle"> Title: {{session['chosen_message'][2]}} </h2>
     </span> 
     <span>
-        <h3 class="msgMessageSender"> From: {{session['chosen_message'][2]}} </h3>
+        <h3 class="msgMessageSender"> From: {{session['chosen_message'][4]}} | {{session['chosen_message'][3]}} </h3>
     </span>
     <div class="msgMessage">
         <span>
-            {{session['chosen_message'][4]}}
+            {{session['chosen_message'][6]}}
         </span>
     </div>
-    <!-- {% if session['chosen_message'][5] is not none %}
+    {% if session['chosen_message'][7] is not none %}
         <div class="msgAttachmentDiv">
-            <form action={{url_for('download_attachment')}} method="post">
-                <input type="submit" value="Download attachment - {{session['chosen_message'][5]}}">
-            </form>
-        </div>
-    {% endif %} -->
-    {% if session['chosen_message'][5] is not none %}
-        <div class="msgAttachmentDiv">
-            Download attachment -  <a href='/download_attachments'> {{session['chosen_message'][5]}}</a>
+            Download attachment -  <a href='/download_attachments'> {{session['chosen_message'][7]}}</a>
         </div>
     {% endif %}
 </div>
