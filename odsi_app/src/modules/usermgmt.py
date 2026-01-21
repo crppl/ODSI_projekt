@@ -4,7 +4,7 @@ import passlib.hash as plh
 import sqlite3
 
 
-from modules.CustomExceptions import (
+from src.modules.CustomExceptions import (
     PasswordLengthException,
     PasswordIllegalCharException,
     PasswordCommonException,
@@ -12,7 +12,7 @@ from modules.CustomExceptions import (
     UsernameTakenException
 )
 
-from modules.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey
+from src.modules.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey
 
 ALLOWED_PASS_CHARS = [i for i in printable[:89]]
 
@@ -106,6 +106,7 @@ def check_username_taken(username):
         db.close()
         raise UsernameTakenException
     except Exception as e:
+        print(e)
         db.close()
         return True
     
@@ -127,7 +128,7 @@ def login_user(username, password):
         sql.execute("SELECT * FROM users WHERE username = ?", (username,))
     except:
         db.close()
-        return False
+        return False, None
 
     ret = sql.fetchall()
     salt, acthash = str(ret[0][1]).split("|")

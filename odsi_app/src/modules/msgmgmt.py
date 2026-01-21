@@ -7,11 +7,11 @@ from Cryptodome.Random import get_random_bytes
 from base64 import b64encode, b64decode
 from werkzeug.datastructures.file_storage import FileStorage
 
-from modules.usermgmt import connect_to_db
-from modules.keymgmt import nullpadding
-from modules.attachments import transform_attachment, get_attachment
+from src.modules.usermgmt import connect_to_db
+from src.modules.keymgmt import nullpadding
+from src.modules.attachments import transform_attachment, get_attachment
 
-from modules.CustomExceptions import UserNotFounException
+from src.modules.CustomExceptions import UserNotFounException
 
 from datetime import datetime
 

@@ -8,7 +8,7 @@
     <!-- {% if category == "key" %}  
         <a href="{{ url_for('download_key', uname=unam) }}" />
     {% else %} -->
-        <div class="flash {{ category }}" style="color:red">{{message}}</div> 
+        <div class="flash {{ category }}" style="color:red;background-color: darkgrey">{{message}}</div> 
     <!-- {% endif %} -->
 {% endfor %}
 <form method=post enctype=multipart/form-data>

@@ -1,18 +1,19 @@
-from modules.attachments import validate_filename, ALLOWED_EXTENSIONS
-from modules.usermgmt import (
+from src import app
+from src.modules.attachments import validate_filename, ALLOWED_EXTENSIONS
+from src.modules.usermgmt import (
     write_user,
     check_username_taken,
     login_user,
     get_users
 )
-from modules.CustomExceptions import (
+from src.modules.CustomExceptions import (
     PasswordLengthException, 
     PasswordCommonException, 
     PasswordIllegalCharException, 
     PasswordLackingCharsException, 
     UsernameTakenException
 )
-from modules.msgmgmt import (
+from src.modules.msgmgmt import (
     send_message,
     get_user_messages,
     check_message_recipient,
@@ -24,9 +25,6 @@ from modules.msgmgmt import (
 from Cryptodome.PublicKey import RSA
 from io import BytesIO
 from base64 import b64decode
-from flask_limiter import Limiter, Limit
-from flask_limiter.util import get_remote_address
-from flask_session import Session
 import bleach
 import time
 
@@ -42,59 +40,14 @@ from flask import (
     session
 )
 
+from src import app, limiter
+
 # TODO - make validating username function
 # max 20 chars from a-zA-Z1-9_-
 # unique
-# TODO - make email address registering AND TOTP on e-mail
+# TODO - make TOTP
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = './files'
-app.config.update(
-    SESSION_COOKIE_SECURE=True,
-    SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='Lax',
-    SESSION_TYPE='filesystem',
-    SESSION_PERMANENT=False,
-    SESSION_USE_SIGNER=True
-    )
 
-app.secret_key = 'wbahtaldgjhg45i791ńaFMDsl'
-
-limiter = Limiter(
-    get_remote_address,
-    app=app,
-    default_limits=[
-        Limit("5/90second", methods=["POST"])
-        ],
-    strategy="fixed-window"
-)
-
-Session(app)
-
-# import sqlite3
-# # !! For resetting users
-# sql = sqlite3.connect("test.db")
-# db = sql.cursor()
-# db.execute("DROP TABLE IF EXISTS USERS;")
-# db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL, privkey BLOB NOT NULL);")
-# db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
-# print(db.execute("SELECT * FROM USERS;").fetchall())
-# db.execute('''INSERT INTO USERS (username, password, pubkey, privkey) VALUES('admin', 'gvba1234asdf5678|fghhgghhjdjdjdjd', 'abcd', 'abcd') ''')
-# print(db.execute("SELECT * FROM USERS;").fetchall())
-# sql.commit()
-# db.close()
-# sql.close()
-
-# # !! For resetting messages
-# sql = sqlite3.connect("test.db")
-# db = sql.cursor()
-# db.execute("DROP TABLE IF EXISTS MESSAGES;")
-# db.execute("CREATE TABLE MESSAGES (msgid INTEGER PRIMARY KEY AUTOINCREMENT, recievee NVARCHAR(20) NOT NULL, sendee NVARCHAR(20) NOT NULL, message_encrypted BLOB NOT NULL, encrypted_message BLOB NOT NULL);")
-# db.execute("CREATE UNIQUE INDEX msgid ON MESSAGES (msgid);")
-# print(db.execute("SELECT * FROM MESSAGES;").fetchall())
-# sql.commit()
-# db.close()
-# sql.close()
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -108,29 +61,6 @@ def upload_file():
                 return redirect("/")
         elif request.method == "GET":
             return render_template("main.html")
-            # check if the post request has the file part
-            # if 'file' not in request.files:
-            #     flash('No file')
-            #     return redirect(request.url)
-            # fileg = request.files['file']
-            # # print(type(file))
-            # # If the user does not select a file, the browser submits an
-            # # empty file without a filename.
-            # if fileg.filename == '':
-            #     flash('No selected file')
-            #     return redirect(request.url)
-            # if fileg and validate_filename(fileg.filename):
-            #     filename = secure_filename(fileg.filename)
-            #     print(filename, type(filename))
-            #     retvals = fileg.stream.read()
-            #     print(retvals)
-            #     retfiole = BytesIO(retvals)
-            #     print(type(retfiole))
-            #     # print(file.stream.read())
-            #     # print(add_attachment(file, "admin"))
-            #     # file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            #     return send_file(retfiole, download_name=filename, as_attachment=True)
-            #     return redirect(url_for('upload_file', name=filename))
 
 
 
@@ -393,3 +323,31 @@ def refresh_user_messages():
         else:
             unread.append(message)
     session['read_msgs'] = read; session['unread_msgs'] = unread
+
+
+
+    
+# import sqlite3
+# # !! For resetting users
+# sql = sqlite3.connect("test.db")
+# db = sql.cursor()
+# db.execute("DROP TABLE IF EXISTS USERS;")
+# db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL, privkey BLOB NOT NULL);")
+# db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
+# print(db.execute("SELECT * FROM USERS;").fetchall())
+# db.execute('''INSERT INTO USERS (username, password, pubkey, privkey) VALUES('admin', 'gvba1234asdf5678|fghhgghhjdjdjdjd', 'abcd', 'abcd') ''')
+# print(db.execute("SELECT * FROM USERS;").fetchall())
+# sql.commit()
+# db.close()
+# sql.close()
+
+# # !! For resetting messages
+# sql = sqlite3.connect("test.db")
+# db = sql.cursor()
+# db.execute("DROP TABLE IF EXISTS MESSAGES;")
+# db.execute("CREATE TABLE MESSAGES (msgid INTEGER PRIMARY KEY AUTOINCREMENT, recievee NVARCHAR(20) NOT NULL, sendee NVARCHAR(20) NOT NULL, message_encrypted BLOB NOT NULL, encrypted_message BLOB NOT NULL);")
+# db.execute("CREATE UNIQUE INDEX msgid ON MESSAGES (msgid);")
+# print(db.execute("SELECT * FROM MESSAGES;").fetchall())
+# sql.commit()
+# db.close()
+# sql.close()

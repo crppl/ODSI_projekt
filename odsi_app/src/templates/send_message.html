@@ -26,9 +26,9 @@
 
 {% for category, message in get_flashed_messages(with_categories=true) %}
     {% if "error" in category %}
-        <div class="flash {{ category }}" style="color:red">{{message}}</div> 
+        <div class="flash {{ category }}" style="color:red;background-color: darkgrey">{{message}}</div> 
     {% elif "success" in category %}
-        <div class="flash {{ category }}" style="color:lime">{{message}}</div> 
+        <div class="flash {{ category }}" style="color:lime;background-color: darkgrey">{{message}}</div> 
     {% endif %}
 {% endfor %}
 

@@ -1,0 +1,33 @@
+# services:
+#   odsi_app:
+#     build: 
+#       context: ./odsi_app
+#       platform: linux/amd64
+#     container_name: odsi_app
+#     restart: always
+#     environment:
+#       - APP_NAME=Oblivious_Directional_Adressing_System
+#     expose:
+#       - 2137
+  
+
+
+services:
+  odsi_app:
+    platform: linux/amd64
+    build: ./odsi_app
+    container_name: odsi_app
+    restart: always
+    environment:
+      - APP_NAME=Oblivious_Directional_Adressing_System
+    expose:
+      - 2137
+
+  nginx:
+    build: ./nginx
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - odsi_app

@@ -3,7 +3,7 @@ from base64 import b64encode, b64decode
 from Cryptodome.Cipher import AES 
 from io import BytesIO 
 from werkzeug.utils import secure_filename
-from modules.CustomExceptions import InvalidFilenameException
+from src.modules.CustomExceptions import InvalidFilenameException
 
 PEPPER = b'G81ksfnal0192030'
 
