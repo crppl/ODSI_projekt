@@ -1,18 +1,18 @@
-from src.attachments import validate_filename, ALLOWED_EXTENSIONS
-from src.usermgmt import (
+from modules.attachments import validate_filename, ALLOWED_EXTENSIONS
+from modules.usermgmt import (
     write_user,
     check_username_taken,
     login_user,
     get_users
 )
-from src.CustomExceptions import (
+from modules.CustomExceptions import (
     PasswordLengthException, 
     PasswordCommonException, 
     PasswordIllegalCharException, 
     PasswordLackingCharsException, 
     UsernameTakenException
 )
-from src.msgmgmt import (
+from modules.msgmgmt import (
     send_message,
     get_user_messages,
     check_message_recipient,

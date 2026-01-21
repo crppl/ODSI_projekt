@@ -1,0 +1,9 @@
+werkzeug
+flask
+flask_session
+flask_limiter
+pycryptodome
+pycryptodomex
+bleach
+passlib
+uwsgi

@@ -4,7 +4,7 @@ import passlib.hash as plh
 import sqlite3
 
 
-from src.CustomExceptions import (
+from modules.CustomExceptions import (
     PasswordLengthException,
     PasswordIllegalCharException,
     PasswordCommonException,
@@ -12,7 +12,7 @@ from src.CustomExceptions import (
     UsernameTakenException
 )
 
-from src.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey
+from modules.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey
 
 ALLOWED_PASS_CHARS = [i for i in printable[:89]]
 
@@ -20,7 +20,7 @@ def generate_salt():
     return "".join([choice(ALLOWED_PASS_CHARS) for _ in range(16)]).encode()
 
 def connect_to_db():
-    db = sqlite3.connect("test.db")
+    db = sqlite3.connect("application.db")
     sql = db.cursor()
     return db, sql
 
