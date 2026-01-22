@@ -1,0 +1,45 @@
+<!doctype html>
+<title>Download QR</title>
+
+<head>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+
+</head>
+<body>
+
+<div class="naviPanelDiv"> 
+    <div class="naviPanelTitleDiv">
+        <span>
+            <h1><a href="/">Oblivious Directional Addressing System</a> - Registration complete! </h1>
+            <h2>Hello {{session['username']}}</h2>
+        </span>
+    </div>
+</div>
+
+{% for category, message in get_flashed_messages(with_categories=true) %}
+    {% if "success" in category %}
+        <div class="flash {{ category }}" style="color:lime;background-color: darkgrey;">{{message}}</div> 
+    {% endif %}
+{% endfor %}
+
+
+<div class="mainKeygenDiv">
+    <span>
+         <h2> 
+            Please scan the following QR code with a Google Authenticator app. It will be necessary for later login!
+        </h2>
+        
+        <img src="" onerror="null"
+        <!-- <form method="post" enctype="multipart/form-data">
+            <input type="submit" name="keygen" value="Generate">   
+        </form> -->
+    </span>
+</div>
+
+<br>
+
+<br>
+
+
+</body>

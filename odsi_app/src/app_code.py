@@ -27,6 +27,7 @@ from io import BytesIO
 from base64 import b64decode
 import bleach
 import time
+import pyotp
 
 from flask import (
     Flask, 
@@ -48,11 +49,10 @@ from src import app, limiter
 # TODO - make TOTP
 
 
-
-
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
-    if 'username' not in session.keys() or 'prkey' not in session.keys():
+    if 'username' not in session.keys() or 'prkey' not in session.keys()  \
+        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
         return redirect("/login")
     else:
         if request.method == 'POST':
@@ -82,14 +82,15 @@ def loginUser():
                             time.sleep(3-elapsed)
                         return redirect(request.url)
                 except UsernameTakenException:
-                    (login_success, pk_blob) = login_user(uname, passw)
+                    (login_success, pk_blob, secret) = login_user(uname, passw)
                     if login_success:
                         session['username'] = uname
                         session['prkey'] = pk_blob
+                        session['secret_otp'] = secret
                         elapsed = time.time() - begin
                         if elapsed < 3:
                             time.sleep(3-elapsed)
-                        return redirect("/")
+                        return redirect("/2fa")
                     else:
                         elapsed = time.time() - begin
                         if elapsed < 3:
@@ -107,6 +108,32 @@ def loginUser():
     else:
         time.sleep(1)
         return redirect("/")
+
+@app.route("/2fa", methods=["GET", "POST"])
+def twoFactorAuth():
+    if 'username' not in session.keys() or 'prkey' not in session.keys() or 'secret_otp' not in session.keys():
+        return redirect("/login")
+    else:
+        if request.method == "GET":
+            return render_template("2fa.html")
+        elif request.method =="POST":        
+            totp = pyotp.TOTP(session['secret_otp'])
+            session['TOTP'] = bleach.clean(request.form.get("totp", "unknown"))
+            if session['TOTP'] == "unknown":
+                return redirect("/logout")
+            else:
+                if totp.verify(session['TOTP']):
+                    session['totp_authenticated'] = True
+                    session.pop('TOTP')
+                    session.pop('secret_otp')
+                    del totp
+                    flash('Logged in successfully!', category="login_success")
+                    return redirect ("/")
+                else:
+                    flash("Incorrect code.", category="2fa_error")
+                    return redirect(request.url)
+        else:
+            return redirect("/logout")
 
 
 @app.route("/logout", methods=["POST"])
@@ -171,7 +198,10 @@ def registerUser():
             elapsed = time.time() - begin
             if elapsed < 3:
                 time.sleep(3-elapsed)
-            flash('User registered correctly! Please log in.', category="success")
+
+            uri = pyotp.totp.TOTP(TOKEYTP).provisioning_uri(name=session['unam'], issuer_name="ODSI_APP")
+            
+            flash('User registered correctly!', category="success")
             return redirect("/login")
         
         else:
@@ -185,11 +215,36 @@ def registerUser():
 
 
 
+@app.route("/gen_keypair", methods=["GET", "POST"])
+def generateKeypairMain():
+    if 'username' not in session.keys() or 'prkey' not in session.keys()  \
+        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
+        return redirect("/logout")
+    else:
+        if request.method == "GET":
+            return render_template("generate_keypair.html")
+        elif request.method == "POST":
+            begin = time.time()
+            session['keygen_req'] = bleach.clean(request.form.get("keygen", "unknown"))
+            if session['keygen_req'] == "unknown":
+                session.pop('keygen_req')
+                flash("Keygen generation aborted.", category="keygen_error")
+                return redirect("/")
+            elif session['keygen_req'] == "keygen":
+                flash("Functionality not completed :(", category="keygen_error")
+                return redirect("/")
+            else:
+                flash("Keygen generation aborted.", category="keygen_error")
+                return redirect("/")
+
+
+
 
 @app.route("/send", methods=["GET", "POST"])
 @limiter.limit("10 per 1 minute", methods=["POST"])
 def sendMessageApp():
-    if 'username' not in session.keys() or 'prkey' not in session.keys():
+    if 'username' not in session.keys() or 'prkey' not in session.keys()  \
+        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
         return redirect("/logout")
     else:
         if request.method == "GET":
@@ -209,7 +264,7 @@ def sendMessageApp():
                 return redirect(request.url)
             elif session['message'] != "" and session['reciever'] != "unknown":
                 try:
-                    send_message(session['title'], session['username'], session.pop('reciever'), session['prkey'], session.pop('message'), attachments=session.pop('attached_file'))
+                    ret = send_message(session['title'], session['username'], session.pop('reciever'), session['prkey'], session.pop('message'), attachments=session.pop('attached_file'))
                 except Exception as e:
                     print("EXCEPTION!!!!", e)
                     elapsed = time.time() - begin
@@ -217,11 +272,15 @@ def sendMessageApp():
                         time.sleep(1.2 - elapsed)
                     flash('There was an unexpected error. Message not sent.', category="send_error")
                     return redirect("/")
-                flash("Message sent!", category="send_success")
                 elapsed = time.time() - begin
                 if elapsed < 1.2:
                     time.sleep(1.2 - elapsed)
-                return redirect("/")
+                if ret:
+                    flash("Message sent!", category="send_success")
+                    return redirect("/")
+                else:
+                    flash("Error occured while sending message.", "send_error")
+                    return redirect("/")
             else:
                 elapsed = time.time() - begin
                 if elapsed < 1.2:
@@ -235,7 +294,8 @@ def sendMessageApp():
 @app.route("/messages", methods=["GET"])
 @limiter.limit("10 per 1 minute", methods=["POST"])
 def listMessages():
-    if 'username' not in session.keys() or 'prkey' not in session.keys():
+    if 'username' not in session.keys() or 'prkey' not in session.keys()  \
+        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
         return redirect("/logout")
     else:
         begin = time.time()
@@ -253,7 +313,8 @@ def listMessages():
 
 @app.route("/manage_msg", methods=["POST"])
 def delete_message_app():
-    if 'username' not in session.keys() or 'prkey' not in session.keys():
+    if 'username' not in session.keys() or 'prkey' not in session.keys()  \
+        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
         return redirect("/logout")
     else:
         session["msge_id"] = bleach.clean(request.form.get("msg_id", "unknown"))
@@ -277,17 +338,26 @@ def delete_message_app():
                 refresh_user_messages()
                 flash('Message deleted succesfully.', category="delete_success")
                 return redirect("/messages")
+            else:
+                flash("Action failed.", category="action_error")
+                return redirect(request.url)
         elif session["msg_action"] == "Mark As Read":
             if check_message_recipient(session['username'], session['msge_id']):
-                mark_message_as_read(session['msge_id'], session['prkey'])
-                refresh_user_messages()
-                flash('Message successfully marked as read.', category="maread_success")
-                return redirect("/messages")
-
+                if mark_message_as_read(session['msge_id'], session['prkey']):
+                    refresh_user_messages()
+                    flash('Message successfully marked as read.', category="maread_success")
+                    return redirect("/messages")
+                else:
+                    flash('Message marking failed.', category="maread_error")
+                    return redirect("/messages")
+            else:
+                flash("Action failed.", category="action_error")
+                return redirect(request.url)
 
 @app.route("/message_details", methods=["GET", "POST"])
 def ListSpecificMessage():
-    if 'username' not in session.keys() or 'prkey' not in session.keys(): 
+    if 'username' not in session.keys() or 'prkey' not in session.keys()  \
+        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True: 
         return redirect("/logout")
     elif check_message_recipient(session['username'], session['chosen_message'][0]):
         return render_template("message.html")
@@ -297,7 +367,8 @@ def ListSpecificMessage():
 
 @app.route("/not_your_message", methods=["GET"])
 def func_not_your_message():
-    if 'username' not in session.keys() or 'prkey' not in session.keys(): 
+    if 'username' not in session.keys() or 'prkey' not in session.keys()  \
+        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True: 
         return redirect("/logout")
     else:
         return render_template("not_your_message.html")
@@ -306,7 +377,8 @@ def func_not_your_message():
 
 @app.route("/download_attachments", methods=["GET"])
 def download_attachment():
-    if 'username' not in session.keys() or 'prkey' not in session.keys():
+    if 'username' not in session.keys() or 'prkey' not in session.keys()  \
+        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
         return redirect("/logout")
     else:
         if session['chosen_message'][7] is None or session['chosen_message'][7] == "":
@@ -317,29 +389,33 @@ def download_attachment():
 
 def refresh_user_messages():
     read = []; unread = []
-    for message in get_user_messages(session['username'], session['prkey']):
-        if message[5]:
-            read.append(message)
+    temp = get_user_messages(session['username'], session['prkey'])
+    if temp:
+        for message in temp:
+            if message != False:
+                if message[5]:
+                    read.append(message)
+                else:
+                    unread.append(message)
+            session['read_msgs'] = read; session['unread_msgs'] = unread
         else:
-            unread.append(message)
-    session['read_msgs'] = read; session['unread_msgs'] = unread
-
+            pass
+    else:
+        flash('Unknown error occured', "refresh_error")
+        return redirect("/")
 
 
     
-# import sqlite3
-# # !! For resetting users
-# sql = sqlite3.connect("test.db")
-# db = sql.cursor()
-# db.execute("DROP TABLE IF EXISTS USERS;")
-# db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL, privkey BLOB NOT NULL);")
-# db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
-# print(db.execute("SELECT * FROM USERS;").fetchall())
-# db.execute('''INSERT INTO USERS (username, password, pubkey, privkey) VALUES('admin', 'gvba1234asdf5678|fghhgghhjdjdjdjd', 'abcd', 'abcd') ''')
-# print(db.execute("SELECT * FROM USERS;").fetchall())
-# sql.commit()
-# db.close()
-# sql.close()
+import sqlite3
+# !! For resetting users
+sql = sqlite3.connect("test.db")
+db = sql.cursor()
+db.execute("DROP TABLE IF EXISTS USERS;")
+db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL, privkey BLOB NOT NULL, secret BLOB NOT NULL);")
+db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
+print(db.execute("SELECT * FROM USERS;").fetchall())
+db.commit()
+db.close()
 
 # # !! For resetting messages
 # sql = sqlite3.connect("test.db")

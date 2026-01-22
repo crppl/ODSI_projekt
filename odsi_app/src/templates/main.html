@@ -26,8 +26,10 @@
 </div>
 
 {% for category, message in get_flashed_messages(with_categories=true) %}
-    {% if category == "send_success" %}
+    {% if "_success" in category %}
         <div class="flash {{ category }}" style="color:lime;background-color: darkgrey;">{{message}}</div> 
+    {% elif "_error" in category %}
+        <div class="flash {{ category }}" style="color:red;background-color: darkgrey;">{{message}}</div> 
     {% endif %}
 {% endfor %}
 
@@ -50,10 +52,12 @@
 
 <div class="mainKeygenDiv">
     <span>
-         <h1> Generate a new key pair <form method="post" enctype="multipart/form-data">
+         <h1> 
+            <a href="/gen_keypair">Generate a new key pair!</a>
+        <!-- <form method="post" enctype="multipart/form-data">
             <input type="submit" name="keygen" value="Generate">   
-        </form>
-    </h1> 
+        </form> -->
+        </h1> 
     </span>
 </div>
 

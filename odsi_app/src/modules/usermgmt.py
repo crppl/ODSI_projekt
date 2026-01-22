@@ -2,6 +2,7 @@ from string import printable
 from random import choice
 import passlib.hash as plh
 import sqlite3
+from pyotp import random_base32
 
 
 from src.modules.CustomExceptions import (
@@ -12,7 +13,7 @@ from src.modules.CustomExceptions import (
     UsernameTakenException
 )
 
-from src.modules.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey
+from src.modules.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey, decrypt_secret
 
 ALLOWED_PASS_CHARS = [i for i in printable[:89]]
 
@@ -81,11 +82,14 @@ def write_user(username:str, password:str):
         keysalt = generate_salt()
 
     priv_key = encrypt_privkey(salt=keysalt, keypair=rsa_keypair, password=password)
-    
+
+
+    secret_key = random_base32(32)
+
     db, sql = connect_to_db()
 
     try:
-        sql.execute("INSERT INTO USERS (username, password, pubkey, privkey) VALUES (?,?,?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1], rsa_keypair.public_key().export_key().decode(), priv_key,))
+        sql.execute("INSERT INTO USERS (username, password, pubkey, privkey, secret) VALUES (?,?,?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1], rsa_keypair.public_key().export_key().decode(), priv_key,))
         db.commit()
         ret = 0
     except Exception as e:
@@ -114,13 +118,14 @@ def check_username_taken(username):
     return False
 
 
-def check_hash(salt:bytes, ahash:str, passw:str, enc_key:bytes):
+def check_hash(salt:bytes, ahash:str, passw:str, enc_key:bytes, secret:bytes):
     hasher = plh.argon2.using(salt=salt, hash_len=47)    
     gh = hasher.hash(passw)
     if gh.split(",p=", 1)[1] == ahash:
-        return True, decrypt_privkey(passw, enc_key)
+        pkey = decrypt_privkey(passw, enc_key)
+        return True, pkey, decrypt_secret(secret, pkey)
     else:
-        return False, None
+        return False, None, None
 
 def login_user(username, password):
     db, sql = connect_to_db()
@@ -128,14 +133,15 @@ def login_user(username, password):
         sql.execute("SELECT * FROM users WHERE username = ?", (username,))
     except:
         db.close()
-        return False, None
+        return False, None, None
 
     ret = sql.fetchall()
     salt, acthash = str(ret[0][1]).split("|")
     enc_key = ret[0][3]
+    secret = ret[0][4]
 
     db.close()
-    return check_hash(salt.encode(), acthash, password, enc_key)
+    return check_hash(salt.encode(), acthash, password, enc_key, secret)
 
 def get_users():
     db, sql = connect_to_db()

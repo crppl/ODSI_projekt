@@ -41,7 +41,7 @@ def send_message(title:str, sender:str, reciever:str, prkey:bytes, message:str, 
     try:
         pubkey = sql.execute("SELECT pubkey FROM users WHERE username = (?)", (reciever, )).fetchall()[0][0]
     except:
-        return 1
+        return False
 
     sender_keypair = RSA.import_key(prkey)
     reciever_keypair = RSA.import_key(pubkey)
@@ -68,7 +68,7 @@ def send_message(title:str, sender:str, reciever:str, prkey:bytes, message:str, 
         print(e)
     db.commit()
     db.close()
-    return 0
+    return True
 
 
 def decrypt_message(msg_id:int, prkey:bytes, set_as_read:bool=False):
@@ -82,10 +82,10 @@ def decrypt_message(msg_id:int, prkey:bytes, set_as_read:bool=False):
         message_all = sql.execute("SELECT * FROM MESSAGES WHERE msgid = (?)", (msg_id, )).fetchall()[0]
         pubkey = sql.execute("SELECT pubkey FROM users WHERE username = (?)", (message_all[1],)).fetchall()[0][0]
     except:
-        return 0
+        return False
     
     if len(message_all) == 0:
-        return 0
+        return False
 
     msg_id = message_all[0]
     sender = message_all[1]
@@ -143,14 +143,16 @@ def get_user_msg_ids(username:str):
     try:
         ids = sql.execute("SELECT msgid FROM messages WHERE sendee = (?)", (username,)).fetchall()
     except:
-        print("TODO - implement except")
-        pass
+        return False
     db.close()
     return [(lambda id:id[0])(id) for id in ids]
 
 
 def get_user_messages(username:str, prkey:bytes):
     msg_ids = get_user_msg_ids(username)
+    
+    if not msg_ids:
+        return False
 
     ret_messages = [decrypt_message(idd, prkey)[:6] for idd in msg_ids]
 
@@ -198,13 +200,12 @@ def mark_message_as_read(msg_id:int, prkey:bytes):
         message_all = sql.execute("SELECT * FROM messages WHERE msgid = (?)", (msg_id,)).fetchall()[0]
         pubkey = sql.execute("SELECT pubkey FROM users WHERE username = (?)", (message_all[1],)).fetchall()[0][0]
     except Exception as e:
-        print("write this exception 3")
         print(e)
         return False
     
     if len(message_all) == 0:
         db.close()
-        return False;
+        return False
 
     priv_key = RSA.import_key(prkey)
     sender_keypair = RSA.import_key(pubkey)
@@ -245,3 +246,5 @@ def mark_message_as_read(msg_id:int, prkey:bytes):
     db.close()
 
     return True
+
+

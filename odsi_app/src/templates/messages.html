@@ -28,8 +28,10 @@
 <br>
 
 {% for category, message in get_flashed_messages(with_categories=true) %}
-    {% if category == "delete_success" %}
+    {% if "_success" in  category %}
         <div class="flash {{ category }}" style="color:lime;background-color: darkgrey">{{message}}</div> 
+    {% elif "_error" in  category %}
+        <div class="flash {{ category }}" style="color:red;background-color: darkgrey">{{message}}</div> 
     {% endif %}
 {% endfor %}
 
