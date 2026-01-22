@@ -31,23 +31,15 @@ import pyotp
 import qrcode
 
 from flask import (
-    Flask, 
     request, 
     redirect, 
     flash, 
-    url_for, 
-    render_template_string, 
     render_template, 
     send_file,
     session
 )
 
 from src import app, limiter
-
-# TODO - make validating username function
-# max 20 chars from a-zA-Z1-9_-
-# unique
-# TODO - make TOTP
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -68,7 +60,7 @@ def upload_file():
 @app.route("/login", methods=["GET", "POST"])
 def loginUser():
     if "secret_otp" in session.keys():
-        session.pop("secret_opt")
+        session.pop("secret_otp")
     if "qr_code" in session.keys():
         session.pop("qr_code")
     if 'username' not in session.keys() or 'totp_authenticated' not in session.keys():
@@ -210,6 +202,8 @@ def registerUser():
                 time.sleep(3-elapsed)
             return redirect(request.url)
         if ret == 0:
+            print("Correct registration!!")
+            print("session['secret_otp']:", session['secret_otp'])
             elapsed = time.time() - begin
             if elapsed < 3:
                 time.sleep(3-elapsed)
@@ -228,7 +222,7 @@ def registerUser():
 
 @app.route("/registration_qr", methods=["GET", "POST"])
 def registrationQR():
-    if "secret_otp" not in session.keys():
+    if "secret_otp" in session.keys():
         if request.method == "GET":
             uri = pyotp.totp.TOTP(session['secret_otp']).provisioning_uri(name=session['unam'], issuer_name="ODSI_APP")
             qr_code = qrcode.QRCode()
@@ -238,38 +232,11 @@ def registrationQR():
             qr_image.save(buf, format="PNG")
             session['qr_code'] = b64encode(buf.getvalue()).decode()
             return render_template("qr_onetime.html")
-        # elif request.method == "POST":
         else:
             return redirect("/logout")
         
     else:
         return redirect("/logout")
-
-
-
-@app.route("/gen_keypair", methods=["GET", "POST"])
-def generateKeypairMain():
-    if 'username' not in session.keys() or 'prkey' not in session.keys()  \
-        or 'totp_authenticated' not in session.keys() or session['totp_authenticated'] != True:
-        return redirect("/logout")
-    else:
-        if request.method == "GET":
-            return render_template("generate_keypair.html")
-        elif request.method == "POST":
-            begin = time.time()
-            session['keygen_req'] = bleach.clean(request.form.get("keygen", "unknown"))
-            if session['keygen_req'] == "unknown":
-                session.pop('keygen_req')
-                flash("Keygen generation aborted.", category="keygen_error")
-                return redirect("/")
-            elif session['keygen_req'] == "keygen":
-                flash("Functionality not completed :(", category="keygen_error")
-                return redirect("/")
-            else:
-                flash("Keygen generation aborted.", category="keygen_error")
-                return redirect("/")
-
-
 
 
 @app.route("/send", methods=["GET", "POST"])
@@ -334,7 +301,6 @@ def listMessages():
         if 'chosen_message' in session.keys():
             session.pop('chosen_message')
         if request.method == "GET":
-            # if "read_msgs" not in session.keys() or "unread_msgs" not in session.keys():
             refresh_user_messages()
             elapsed = time.time() - begin
             if elapsed < 1.2:
@@ -357,7 +323,6 @@ def delete_message_app():
             if check_message_recipient(session['username'], session['msge_id']):
                 try:
                     session['chosen_message'] = get_user_message_id(session['msge_id'], session['prkey'])
-                # flash("WARNING! This message does not match the original signature!\nIt may have been tampered with!", category="invalid_sign")
                 except:
                     return redirect("/not_your_message")
     
@@ -433,29 +398,5 @@ def refresh_user_messages():
         else:
             pass
     else:
-        flash('Unknown error occured', "refresh_error")
+        flash('No messages found!', "refresh_error")
         return redirect("/")
-
-
-    
-# import sqlite3
-# from src.modules.usermgmt import connect_to_db
-# !! For resetting users
-# sql, db = connect_to_db()
-# db.execute("DROP TABLE IF EXISTS USERS;")
-# db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL, privkey BLOB NOT NULL, secret BLOB NOT NULL);")
-# db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
-# print(db.execute("SELECT * FROM USERS;").fetchall())
-# sql.commit()
-# sql.close()
-
-# # !! For resetting messages
-# sql = sqlite3.connect("test.db")
-# db = sql.cursor()
-# db.execute("DROP TABLE IF EXISTS MESSAGES;")
-# db.execute("CREATE TABLE MESSAGES (msgid INTEGER PRIMARY KEY AUTOINCREMENT, recievee NVARCHAR(20) NOT NULL, sendee NVARCHAR(20) NOT NULL, message_encrypted BLOB NOT NULL, encrypted_message BLOB NOT NULL);")
-# db.execute("CREATE UNIQUE INDEX msgid ON MESSAGES (msgid);")
-# print(db.execute("SELECT * FROM MESSAGES;").fetchall())
-# sql.commit()
-# db.close()
-# sql.close()

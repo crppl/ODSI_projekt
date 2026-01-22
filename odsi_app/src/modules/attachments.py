@@ -1,13 +1,9 @@
 from werkzeug.datastructures.file_storage import FileStorage
 from base64 import b64encode, b64decode
-from Cryptodome.Cipher import AES 
-from io import BytesIO 
 from werkzeug.utils import secure_filename
 from src.modules.CustomExceptions import InvalidFilenameException
 
-PEPPER = b'G81ksfnal0192030'
-
-ALLOWED_EXTENSIONS = {"txt", "pdf", "png", "jpg", "jpeg"}
+ALLOWED_EXTENSIONS = {"txt", "pdf", "png", "jpg", "jpeg", "zip"}
 def validate_filename(filename:str):
     return '.' in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -21,6 +17,5 @@ def transform_attachment(attach:FileStorage):
 
 def get_attachment(attachment:bytes):
     b64dattach = b64decode(attachment)
-    # print(b64dattach, type(b64dattach))
     (fname, fle) = b64dattach.split(b"|", 1)
     return fname.decode(), b64encode(fle).decode('ascii')

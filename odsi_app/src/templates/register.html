@@ -5,11 +5,11 @@
 <body>
 <h1>Oblivious Directional Addressing System - Registration form</h1>
 {% for category, message in get_flashed_messages(with_categories=true) %}
-    <!-- {% if category == "key" %}  
-        <a href="{{ url_for('download_key', uname=unam) }}" />
-    {% else %} -->
+    {% if "_success" in category %}  
+        <div class="flash {{ category }}" style="color:lime;background-color: darkgrey">{{message}}</div> 
+    {% elif "_error" in category %}
         <div class="flash {{ category }}" style="color:red;background-color: darkgrey">{{message}}</div> 
-    <!-- {% endif %} -->
+    {% endif %}
 {% endfor %}
 <form method=post enctype=multipart/form-data>
     <input type="text" id="unam" name="unam"> <br>

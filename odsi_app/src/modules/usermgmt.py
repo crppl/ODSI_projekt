@@ -29,7 +29,6 @@ def connect_to_db():
 # 12 char password ~= 77 in entropy 
 def validate_password(password:str):
     if len(password) < 12:
-        # return 1
         raise PasswordLengthException('Password too short!')
     for ch in password:
         if ch not in ALLOWED_PASS_CHARS:

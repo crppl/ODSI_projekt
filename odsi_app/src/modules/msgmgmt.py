@@ -237,7 +237,6 @@ def mark_message_as_read(msg_id:int, prkey:bytes):
         db.commit()
     except Exception as e:
         print(e)
-        print("TODO - implement in msgmgmt")
         return False
 
     del enc_msg_aes, enc_msg_rsa, message_all, pubkey, cipher, enc_aeskey, sign, u_aes, u_iv 
