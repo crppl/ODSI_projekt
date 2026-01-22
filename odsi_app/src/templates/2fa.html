@@ -19,13 +19,14 @@
     {% endif %}
 {% endfor %}
 
-<div class="mainKeygenDiv">
+<div>
     <span>
          <h2> 
             Please write the code from your Google Authenticator app:
         </h2> 
-        <form method="post" enctype="text/plain">
-            <input type="number" name="totp" required>
+        <form method=post>
+            <input type="text" name="totp_val" id="totp_val" placeholder="Enter code here." required>
+            <input type="text" name="message_title" id="message_title" placeholder="Title" required>
             <input type="submit" name="submitTOTP" value="Send!">   
         </form>
     </span>

@@ -26,5 +26,3 @@ def encrypt_secret(secret:bytes, pub_key:bytes):
 
 def decrypt_secret(secret:bytes, pr_key:bytes):
     return PKCS1_OAEP.new(RSA.import_key(pr_key)).decrypt(secret).decode()
-
-

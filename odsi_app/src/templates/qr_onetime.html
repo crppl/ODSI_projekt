@@ -30,10 +30,12 @@
             Please scan the following QR code with a Google Authenticator app. It will be necessary for later login!
         </h2>
         
-        <img src="" onerror="null"
-        <!-- <form method="post" enctype="multipart/form-data">
-            <input type="submit" name="keygen" value="Generate">   
-        </form> -->
+        <img src="data:image/png;base64,{{session['qr_code']}}"  onerror="null">
+        <p>Or enter the key manually: <code>{{session['secret_otp']}}</code></p>
+
+        <h2>Once the Authenticator creates codes, you can <a href="/logout">go to login</a></h2>
+        <!-- <h2>Once the Authenticator creates codes, you can <form action="{{url_for('logoutUser')}}" method="POST"><input type="submit" value="go to login"></form></h2> -->
+
     </span>
 </div>
 

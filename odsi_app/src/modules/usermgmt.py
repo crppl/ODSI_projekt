@@ -13,7 +13,7 @@ from src.modules.CustomExceptions import (
     UsernameTakenException
 )
 
-from src.modules.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey, decrypt_secret
+from src.modules.keymgmt import generate_keypair, encrypt_privkey, decrypt_privkey, decrypt_secret, encrypt_secret
 
 ALLOWED_PASS_CHARS = [i for i in printable[:89]]
 
@@ -34,7 +34,7 @@ def validate_password(password:str):
     for ch in password:
         if ch not in ALLOWED_PASS_CHARS:
             raise PasswordIllegalCharException('Password contains illegal characters!')
-    data = open("files/popular_passwords.txt", "r").readlines()
+    data = open("src/files/popular_passwords.txt", "r").readlines()
     for pas in data:
         if password.strip() == pas.strip():
             raise PasswordCommonException('Password found in list of popular passwords!')
@@ -67,7 +67,7 @@ def write_user(username:str, password:str):
     ret:int
     ret = validate_password(password)
     if check_username_taken(username):
-        return
+        return 0, None
 
     salt = generate_salt()
     hasher = plh.argon2.using(salt=salt, hash_len=47)    
@@ -83,20 +83,23 @@ def write_user(username:str, password:str):
 
     priv_key = encrypt_privkey(salt=keysalt, keypair=rsa_keypair, password=password)
 
+    secret = random_base32(64)
 
-    secret_key = random_base32(32)
+    secret_key = encrypt_secret(secret.encode(), rsa_keypair.public_key().export_key())
 
     db, sql = connect_to_db()
 
     try:
-        sql.execute("INSERT INTO USERS (username, password, pubkey, privkey, secret) VALUES (?,?,?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1], rsa_keypair.public_key().export_key().decode(), priv_key,))
+        sql.execute("INSERT INTO USERS (username, password, pubkey, privkey, secret) VALUES (?,?,?,?,?)", (username, salt.decode() + "|" + ghash.split(",p=", 1)[1], rsa_keypair.public_key().export_key().decode(), priv_key,secret_key,))
         db.commit()
         ret = 0
     except Exception as e:
         print("User registration - unknown exception occured!\n", e)
         ret = 9
     db.close()
-    return ret
+    if ret == 9:
+        return ret, None
+    return ret, secret
 
 def check_username_taken(username):
     db, sql = connect_to_db()

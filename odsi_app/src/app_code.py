@@ -24,10 +24,11 @@ from src.modules.msgmgmt import (
 
 from Cryptodome.PublicKey import RSA
 from io import BytesIO
-from base64 import b64decode
+from base64 import b64decode, b64encode
 import bleach
 import time
 import pyotp
+import qrcode
 
 from flask import (
     Flask, 
@@ -52,7 +53,7 @@ from src import app, limiter
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if 'username' not in session.keys() or 'prkey' not in session.keys()  \
-        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
+        or 'totp_authenticated' not in session.keys() or session['totp_authenticated'] != True:
         return redirect("/login")
     else:
         if request.method == 'POST':
@@ -66,7 +67,11 @@ def upload_file():
 
 @app.route("/login", methods=["GET", "POST"])
 def loginUser():
-    if 'username' not in session.keys():
+    if "secret_otp" in session.keys():
+        session.pop("secret_opt")
+    if "qr_code" in session.keys():
+        session.pop("qr_code")
+    if 'username' not in session.keys() or 'totp_authenticated' not in session.keys():
         if request.form.get("register", "unknown") != "unknown":
             return redirect("/register")
         else:
@@ -116,10 +121,14 @@ def twoFactorAuth():
     else:
         if request.method == "GET":
             return render_template("2fa.html")
-        elif request.method =="POST":        
+        elif request.method == "POST":        
+            begin = time.time()
             totp = pyotp.TOTP(session['secret_otp'])
-            session['TOTP'] = bleach.clean(request.form.get("totp", "unknown"))
+            session['TOTP'] = bleach.clean(request.form.get("totp_val", "unknown"))
             if session['TOTP'] == "unknown":
+                elapsed = time.time() - begin
+                if elapsed < 2:
+                    time.sleep(2 - elapsed)
                 return redirect("/logout")
             else:
                 if totp.verify(session['TOTP']):
@@ -127,16 +136,22 @@ def twoFactorAuth():
                     session.pop('TOTP')
                     session.pop('secret_otp')
                     del totp
+                    elapsed = time.time() - begin
+                    if elapsed < 2:
+                        time.sleep(2 - elapsed)
                     flash('Logged in successfully!', category="login_success")
                     return redirect ("/")
                 else:
+                    elapsed = time.time() - begin
+                    if elapsed < 2:
+                        time.sleep(2 - elapsed)
                     flash("Incorrect code.", category="2fa_error")
                     return redirect(request.url)
         else:
             return redirect("/logout")
 
 
-@app.route("/logout", methods=["POST"])
+@app.route("/logout", methods=["GET", "POST"])
 def logoutUser():
     session.clear()
     flash("Logged out!", category="success")
@@ -158,7 +173,7 @@ def registerUser():
 
         # user writing
         try:
-            ret = write_user(session['unam'], session['passw'])
+            (ret, session['secret_otp']) = write_user(session['unam'], session['passw'])
         except PasswordLengthException:
             flash('Password must be at least 12 characters long!', category="error")
             elapsed = time.time() - begin
@@ -198,11 +213,8 @@ def registerUser():
             elapsed = time.time() - begin
             if elapsed < 3:
                 time.sleep(3-elapsed)
-
-            uri = pyotp.totp.TOTP(TOKEYTP).provisioning_uri(name=session['unam'], issuer_name="ODSI_APP")
-            
             flash('User registered correctly!', category="success")
-            return redirect("/login")
+            return redirect("/registration_qr")
         
         else:
             flash('Unknown error occured.', category="error")
@@ -214,11 +226,31 @@ def registerUser():
     return render_template("register.html")
 
 
+@app.route("/registration_qr", methods=["GET", "POST"])
+def registrationQR():
+    if "secret_otp" not in session.keys():
+        if request.method == "GET":
+            uri = pyotp.totp.TOTP(session['secret_otp']).provisioning_uri(name=session['unam'], issuer_name="ODSI_APP")
+            qr_code = qrcode.QRCode()
+            qr_code.add_data(uri)
+            qr_image = qr_code.make_image()
+            buf = BytesIO()
+            qr_image.save(buf, format="PNG")
+            session['qr_code'] = b64encode(buf.getvalue()).decode()
+            return render_template("qr_onetime.html")
+        # elif request.method == "POST":
+        else:
+            return redirect("/logout")
+        
+    else:
+        return redirect("/logout")
+
+
 
 @app.route("/gen_keypair", methods=["GET", "POST"])
 def generateKeypairMain():
     if 'username' not in session.keys() or 'prkey' not in session.keys()  \
-        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
+        or 'totp_authenticated' not in session.keys() or session['totp_authenticated'] != True:
         return redirect("/logout")
     else:
         if request.method == "GET":
@@ -244,7 +276,7 @@ def generateKeypairMain():
 @limiter.limit("10 per 1 minute", methods=["POST"])
 def sendMessageApp():
     if 'username' not in session.keys() or 'prkey' not in session.keys()  \
-        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
+        or 'totp_authenticated' not in session.keys() or session['totp_authenticated'] != True:
         return redirect("/logout")
     else:
         if request.method == "GET":
@@ -295,7 +327,7 @@ def sendMessageApp():
 @limiter.limit("10 per 1 minute", methods=["POST"])
 def listMessages():
     if 'username' not in session.keys() or 'prkey' not in session.keys()  \
-        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
+        or 'totp_authenticated' not in session.keys() or session['totp_authenticated'] != True:
         return redirect("/logout")
     else:
         begin = time.time()
@@ -314,7 +346,7 @@ def listMessages():
 @app.route("/manage_msg", methods=["POST"])
 def delete_message_app():
     if 'username' not in session.keys() or 'prkey' not in session.keys()  \
-        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
+        or 'totp_authenticated' not in session.keys() or session['totp_authenticated'] != True:
         return redirect("/logout")
     else:
         session["msge_id"] = bleach.clean(request.form.get("msg_id", "unknown"))
@@ -357,7 +389,7 @@ def delete_message_app():
 @app.route("/message_details", methods=["GET", "POST"])
 def ListSpecificMessage():
     if 'username' not in session.keys() or 'prkey' not in session.keys()  \
-        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True: 
+        or 'totp_authenticated' not in session.keys() or session['totp_authenticated'] != True: 
         return redirect("/logout")
     elif check_message_recipient(session['username'], session['chosen_message'][0]):
         return render_template("message.html")
@@ -368,7 +400,7 @@ def ListSpecificMessage():
 @app.route("/not_your_message", methods=["GET"])
 def func_not_your_message():
     if 'username' not in session.keys() or 'prkey' not in session.keys()  \
-        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True: 
+        or 'totp_authenticated' not in session.keys() or session['totp_authenticated'] != True: 
         return redirect("/logout")
     else:
         return render_template("not_your_message.html")
@@ -378,7 +410,7 @@ def func_not_your_message():
 @app.route("/download_attachments", methods=["GET"])
 def download_attachment():
     if 'username' not in session.keys() or 'prkey' not in session.keys()  \
-        or 'totp_authenticated' not in session.keys() or session('totp_authenticated') != True:
+        or 'totp_authenticated' not in session.keys() or session['totp_authenticated'] != True:
         return redirect("/logout")
     else:
         if session['chosen_message'][7] is None or session['chosen_message'][7] == "":
@@ -406,16 +438,16 @@ def refresh_user_messages():
 
 
     
-import sqlite3
+# import sqlite3
+# from src.modules.usermgmt import connect_to_db
 # !! For resetting users
-sql = sqlite3.connect("test.db")
-db = sql.cursor()
-db.execute("DROP TABLE IF EXISTS USERS;")
-db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL, privkey BLOB NOT NULL, secret BLOB NOT NULL);")
-db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
-print(db.execute("SELECT * FROM USERS;").fetchall())
-db.commit()
-db.close()
+# sql, db = connect_to_db()
+# db.execute("DROP TABLE IF EXISTS USERS;")
+# db.execute("CREATE TABLE USERS (username NVARCHAR(20) NOT NULL, password NVARCHAR(100) NOT NULL, pubkey NVARCHAR(500) NOT NULL, privkey BLOB NOT NULL, secret BLOB NOT NULL);")
+# db.execute("CREATE UNIQUE INDEX userid ON USERS (username);")
+# print(db.execute("SELECT * FROM USERS;").fetchall())
+# sql.commit()
+# sql.close()
 
 # # !! For resetting messages
 # sql = sqlite3.connect("test.db")
